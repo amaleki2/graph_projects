@@ -1,8 +1,7 @@
 import torch.nn as nn
-from src import (train_sdf, get_sdf_data_loader,
-                 EncodeProcessDecode, EncodeProcessDecodeNEW,
-                 GatUNet, GatUNet2, GraphNetworkIndependentBlock, GraphNetworkBlock,
-                 EncodeProcessDecode, EncodeProcessDecodeNEW,
+from src import (train_sdf, get_sdf_data_loader, plot_sdf_results,
+                 GatUNet2, GraphNetworkIndependentBlock, GraphNetworkBlock,
+                 EncodeProcessDecodeNEW,
                  borderless_loss, clamped_loss, deep_mind_loss)
 
 # get data
@@ -54,3 +53,8 @@ loss_funcs = [deep_mind_loss]
 
 train_sdf(model, train_data, train_data, loss_funcs, n_epoch=n_epoch, print_every=print_every,
           save_name=save_name, lr_0=lr_0, step_size=step_size, gamma=gamma)
+
+# visualization
+data_loader, _ = get_sdf_data_loader(1, data_folder, 1, eval_frac=0, edge_method=edge_method, edge_params=edge_params)
+output_func = lambda x: x[-1][1].numpy().reshape(-1)
+plot_sdf_results(model, data_loader, save_name=save_name, output_func=output_func, levels=[-0.1, 0., 0.1])

@@ -58,7 +58,9 @@ def print_and_save(model, epoch, train_losses_list, test_losses_list, optimizer,
 def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None):
     train_loss_history = np.load("save_dir/loss_train_" + save_name + ".npy")
     test_loss_history = np.load("save_dir/loss_test_" + save_name + ".npy")
+    plt.subplot(1, 2, 1)
     plt.plot(train_loss_history, label="train loss")
+    plt.subplot(1, 2, 2)
     plt.plot(test_loss_history, label="test loss")
     plt.yscale('log')
 
@@ -81,13 +83,9 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
             plt.figure(figsize=(8, 4))
             plt.subplot(1, 2, 1)
             plot_mesh(mesh, vals=output, with_colorbar=False, levels=levels)
-            plt.gca().set_xticks([])
-            plt.gca().set_yticks([])
-            plt.subplot(1, 2, 2)
 
+            plt.subplot(1, 2, 2)
             p = plot_mesh(mesh, vals=data.y.numpy()[:, 0], with_colorbar=False, levels=levels)
-            plt.gca().set_xticks([])
-            plt.gca().set_yticks([])
             plt.gcf().subplots_adjust(right=0.8)
             cbar_ax = plt.gcf().add_axes([0.85, 0.15, 0.05, 0.7])
             plt.gcf().colorbar(p, cax=cbar_ax)
@@ -127,6 +125,7 @@ def plot_sdf_results_over_line(model, data, lines=(-0.5, 0, 0.5), save_name="", 
                 plot_mesh_onto_line(mesh, val=gt, y=line, linestyle="--")
             plt.show()
 
+
 def plot_mesh_onto_line(mesh, val, x=None, y=None, show=False, linestyle="-"):
     if not isinstance(mesh.points, np.ndarray):
         mesh.points = np.array(mesh.points)
@@ -150,7 +149,7 @@ def plot_mesh_onto_line(mesh, val, x=None, y=None, show=False, linestyle="-"):
     if show: plt.show()
 
 
-def plot_mesh(mesh, dims=2, node_labels=False, vals=None, with_colorbar=False, levels=None, border=None):
+def plot_mesh(mesh, dims=2, node_labels=False, vals=None, with_colorbar=False, levels=None, border=None, ticks_off=True):
     if not isinstance(mesh.points, np.ndarray):
         mesh.points = np.array(mesh.points)
     nodes_x = mesh.points[:, 0]
@@ -163,7 +162,8 @@ def plot_mesh(mesh, dims=2, node_labels=False, vals=None, with_colorbar=False, l
         else:
             triangulation = tri.Triangulation(nodes_x, nodes_y, elements_tris)
             p = plt.tricontourf(triangulation, vals, 30)
-            if with_colorbar: plt.colorbar()
+            if with_colorbar:
+                plt.colorbar()
             if levels:
                 cn = plt.tricontour(triangulation, vals, levels, colors='w')
                 plt.clabel(cn, fmt='%0.2f', colors='k', fontsize=10)
@@ -172,6 +172,9 @@ def plot_mesh(mesh, dims=2, node_labels=False, vals=None, with_colorbar=False, l
             plt.hlines(-1 + border, -1 + border, 1 - border, 'r')
             plt.vlines(1 - border, -1 + border, 1 - border, 'r')
             plt.vlines(-1 + border, -1 + border, 1 - border, 'r')
+        if ticks_off:
+            plt.gca().set_xticks([])
+            plt.gca().set_yticks([])
 
     if node_labels:
         for i, (x, y) in enumerate(zip(nodes_x, nodes_y)):
