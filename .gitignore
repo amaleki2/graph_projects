@@ -1,0 +1,4 @@
+*.vtk
+*.npy
+.ipynb_checkpoints
+.idea
