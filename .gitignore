@@ -1,5 +1,7 @@
 *.vtk
 *.npy
+*.pyc
+*.pth
 .ipynb_checkpoints
 .idea
 save_dir/

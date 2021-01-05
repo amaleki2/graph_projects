@@ -53,4 +53,4 @@ model = EncodeProcessDecodeNEW(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out=n_
 loss_funcs = [deep_mind_loss]
 
 train_sdf(model, train_data, train_data, loss_funcs, n_epoch=n_epoch, print_every=print_every,
-          save_name=save_name, lr_0=lr_0, step_size=step_size, gamma=gamma, **losses_params)
+          save_name=save_name, lr_0=lr_0, step_size=step_size, gamma=gamma)
