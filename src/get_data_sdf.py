@@ -1,3 +1,4 @@
+import tqdm
 import torch
 import meshio
 import numpy as np
@@ -57,7 +58,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
     test_graph_data_list = []
 
     for idx, graph_data_list in zip([train_idx, test_idx], [train_graph_data_list, test_graph_data_list]):
-        for i in idx:
+        for i in tqdm.tqdm(idx):
             mesh_geom = meshio.read(data_folder + "geom%d.vtk" % i)
             mesh_sdf  = meshio.read(data_folder + "sdf%d.vtk" % i)
             x = mesh_geom.points.copy()
