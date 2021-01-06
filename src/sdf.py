@@ -11,11 +11,9 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epoch=500, print_every
               save_name="", lr_0=0.001, step_size=50, gamma=0.5, resume_training=False, **losses_params):
     device = get_device(use_cpu)
     model = model.to(device=device)
-
-
     if resume_training:
-        train_losses_list = np.load("save_dir/loss_train_" + save_name + ".npy")
-        test_losses_list = np.load("save_dir/loss_test_" + save_name + ".npy")
+        train_losses_list = np.load("save_dir/loss_train_" + save_name + ".npy").tolist()
+        test_losses_list = np.load("save_dir/loss_test_" + save_name + ".npy").tolist()
         model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
         i_start = len(train_losses_list)
         n_scheduler_activated = i_start // step_size
