@@ -60,8 +60,11 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
     test_loss_history = np.load("save_dir/loss_test_" + save_name + ".npy")
     plt.subplot(1, 2, 1)
     plt.plot(train_loss_history, label="train loss")
+    plt.ylim([8e-4, 2e-1])
+    plt.yscale('log')
     plt.subplot(1, 2, 2)
     plt.plot(test_loss_history, label="test loss")
+    plt.ylim([8e-4, 2e-1])
     plt.yscale('log')
 
     device = 'cpu'
