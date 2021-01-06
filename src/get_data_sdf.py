@@ -46,7 +46,7 @@ def add_self_edges(edges):
 
 def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                         reversed_edge_already_included=False, self_edge_already_included=False,
-                        edge_method='edge', edge_params=None):
+                        edge_method='edge', edge_params=None, no_global=False):
     print("preparing sdf data loader")
 
     # random splitting into train and test
@@ -93,9 +93,12 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 
             edge_feats = compute_edge_features(x, edges)
 
-            cent = np.mean(x[x[:, 2] == 1, :2], axis=0, keepdims=True)
-            area = np.mean(x[:, :2], keepdims=True)
-            u = np.concatenate((cent, area), axis=1)
+            if not no_global:
+                cent = np.mean(x[x[:, 2] == 1, :2], axis=0, keepdims=True)
+                area = np.mean(x[:, :2], keepdims=True)
+                u = np.concatenate((cent, area), axis=1)
+            else:
+                u = np.ones((1, 3))
 
             graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
                               y=torch.from_numpy(y).type(torch.float32),
