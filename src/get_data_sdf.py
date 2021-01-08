@@ -1,3 +1,4 @@
+import os
 import tqdm
 import torch
 import meshio
@@ -16,17 +17,28 @@ def cells_to_edges(cells):
     return edge_pairs
 
 
-def vertices_to_proximity(x, radius):
-    dist = distance_matrix(x[:, :2], x[:, :2])
-    dist += 2 * radius * np.tril(np.ones_like(dist))  # to avoid duplication later
-    edges = np.array(np.where(dist < radius)).T
+def vertices_to_proximity(x, radius, cache_knn=None):
+    if cache_knn is not None and os.path.isfile(cache_knn):
+        dist_val, dist_idx = np.load(cache_knn)
+        dist_idx = dist_idx.astype(int)
+    else:
+        dist = distance_matrix(x[:, :2], x[:, :2])
+        #dist += dist.max() * np.tril(np.ones_like(dist))  # to avoid duplication later
+        dist_idx = np.argsort(dist, axis=1)[:, :25]
+        dist_val = np.sort(dist, axis=1)[:, :25]
+        if cache_knn is not None:
+            np.save(cache_knn, np.array([dist_val, dist_idx]))
+    neighbours_idx = np.where(dist_val < radius)
+    edges = [neighbours_idx[0], dist_idx[neighbours_idx[0], neighbours_idx[1]]]
+    edges = np.array(edges).T
     return edges
 
 
-def compute_edge_features(x, edge_index):
+def compute_edge_features(x, edge_index, include_abs=False):
     e1, e2 = edge_index
     edge_attrs = x[e1, :] - x[e2, :]
-    edge_attrs = np.concatenate((edge_attrs, np.abs(edge_attrs[:, :2])), axis=1)
+    if include_abs:
+        edge_attrs= np.concatenate((edge_attrs, np.abs(edge_attrs[:, :2])), axis=1)
     return edge_attrs
 
 
@@ -59,23 +71,24 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 
     for idx, graph_data_list in zip([train_idx, test_idx], [train_graph_data_list, test_graph_data_list]):
         for i in tqdm.tqdm(idx):
-            mesh_geom = meshio.read(data_folder + "geom%d.vtk" % i)
-            mesh_sdf  = meshio.read(data_folder + "sdf%d.vtk" % i)
-            x = mesh_geom.points.copy()
+            mesh_sdf = meshio.read(data_folder + "sdf%d.vtk" % i)
+            x = mesh_sdf.points.copy()
             y = mesh_sdf.points.copy()[:, 2]
-            x[:, 2] = (y < 0).astype(float)
+            x[:, 2] = y < 0
+            x = x.astype(float)
             y = y / np.sqrt(8)
             y = y.reshape(-1, 1)
 
-            cells = [x for x in mesh_geom.cells if x.type == 'triangle']
-            cells = cells[0].data
+            cells = [x for x in mesh_sdf.cells if x.type == 'triangle']
+            cells = cells[0].data.astype(int)
             cells = np.array(cells).T
 
             if edge_method == 'edge':
                 edges = cells_to_edges(cells.T)
             elif edge_method == 'proximity':
+                knn_idx = data_folder + "knn%d.npy" % i
                 radius = edge_params['radius']
-                edges = vertices_to_proximity(x, radius)
+                edges = vertices_to_proximity(x, radius, cache_knn=knn_idx)
             elif edge_method == 'both':
                 edges1 = cells_to_edges(cells.T)
                 radius = edge_params['radius']
@@ -90,7 +103,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
                 edges = add_reversed_edges(edges)
             if not self_edge_already_included:
                 edges = add_self_edges(edges)
-
+            edges = np.unique(edges, axis=1)   # remove repeated edges
             edge_feats = compute_edge_features(x, edges)
 
             if not no_global:

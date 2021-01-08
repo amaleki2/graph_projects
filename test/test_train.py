@@ -8,8 +8,8 @@ from src import (train_sdf, get_sdf_data_loader, plot_sdf_results,
 n_objects = 1
 data_folder = ""
 batch_size = 6
-edge_method = 'edge' # or 'proximity'
-edge_params = {'radius': 0.05}
+edge_method = 'proximity'  # 'edge'
+edge_params = {'radius': 1.25}
 train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0,
                                             edge_method=edge_method, edge_params=edge_params)
 assert len(train_data) == 1
