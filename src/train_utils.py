@@ -26,17 +26,13 @@ def get_device(use_cpu):
     return device
 
 
-def forward_step(model, data, loss_funcs, device, training=True, **loss_kwargs):
-    # bring data to GPU/CPU
+def train_forward_step(model, data, loss_funcs, device, training=True, **loss_kwargs):
     data = data.to(device)
-
-    # prepare for training/evaluation
     if training:
         model.train()
     else:
         model.eval()
 
-    # get output
     pred = model(data)
     losses = [func(pred, data, **loss_kwargs) for func in loss_funcs]
     return losses
