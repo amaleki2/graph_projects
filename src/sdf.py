@@ -68,14 +68,11 @@ def print_and_save(model, epoch, train_losses_list, test_losses_list, optimizer,
 def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None):
     train_loss_history = np.load("save_dir/loss_train_" + save_name + ".npy")
     test_loss_history = np.load("save_dir/loss_test_" + save_name + ".npy")
-    plt.subplot(1, 2, 1)
     plt.plot(train_loss_history, label="train loss")
-    plt.ylim([8e-4, 2e-1])
+    plt.plot(np.linspace(0, len(train_loss_history)-1, len(test_loss_history)), test_loss_history, label="test loss")
+    plt.ylim([9e-4, 2e-1])
     plt.yscale('log')
-    plt.subplot(1, 2, 2)
-    plt.plot(test_loss_history, label="test loss")
-    plt.ylim([8e-4, 2e-1])
-    plt.yscale('log')
+    plt.legend()
 
     device = 'cpu'
     model = model.to(device)
@@ -84,25 +81,43 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
     with torch.no_grad():
         for i, data in enumerate(data_loader):
             if i == max_num_data: break
-            cells = data.face.numpy()
             points = data.x.numpy()
-            points[:, 2] = 0.
-            mesh = meshio.Mesh(points=points, cells=[("triangle", cells.T)])
+            xx = points[:, 0]
+            yy = points[:, 1]
+            true_vals = data.y.numpy()[:, 0]
 
             data = data.to(device=device)
             output = model(data)
-            output = output_func(output)
+            pred_vals = output_func(output)
 
-            plt.figure(figsize=(8, 4))
-            plt.subplot(1, 2, 1)
-            plot_mesh(mesh, vals=output, with_colorbar=False, levels=levels)
-
-            plt.subplot(1, 2, 2)
-            p = plot_mesh(mesh, vals=data.y.numpy()[:, 0], with_colorbar=False, levels=levels)
-            plt.gcf().subplots_adjust(right=0.8)
-            cbar_ax = plt.gcf().add_axes([0.85, 0.15, 0.05, 0.7])
-            plt.gcf().colorbar(p, cax=cbar_ax)
+            plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=levels, linewidth=1, linecolor='k')
             plt.show()
+
+
+def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None, linewidth=1, linecolor='k'):
+    fig, (ax1, ax2, ax3) = plt.subplots(figsize=(10, 5), nrows=1, ncols=3)
+
+    cntr1 = ax1.tricontour(xx, yy, true_vals, levels=levels, linewidths=linewidth, colors=linecolor)
+    plt.clabel(cntr1, fmt='%0.2f', colors='k', fontsize=10)
+    cntr1 = ax1.tricontourf(xx, yy, true_vals, cmap="RdBu_r", levels=20)
+    fig.colorbar(cntr1, ax=ax1)
+    ax1.set(xlim=(-1, 1), ylim=(-1, 1))
+
+    cntr2 = ax2.tricontour(xx, yy, pred_vals, levels=levels, linewidths=linewidth, colors=linecolor)
+    plt.clabel(cntr2, fmt='%0.2f', colors='k', fontsize=10)
+    cntr2 = ax2.tricontourf(xx, yy, pred_vals, cmap="RdBu_r", levels=20)
+    fig.colorbar(cntr2, ax=ax2)
+    ax2.set(xlim=(-1, 1), ylim=(-1, 1))
+
+    new_levels = [(l + r) / 2 for (l, r) in zip(levels[1:], levels[:-1])] + levels
+    new_levels = sorted(new_levels)
+    cntr3 = ax3.tricontour(xx, yy, true_vals, levels=new_levels, linewidths=linewidth, colors='k')
+    plt.clabel(cntr3, fmt='%0.2f', colors='k', fontsize=10)
+    cntr3 = ax3.tricontour(xx, yy, pred_vals, levels=new_levels, linewidths=linewidth, colors='r', linestyles='--')
+    ax3.set(xlim=(-1, 1), ylim=(-1, 1))
+
+    plt.subplots_adjust(wspace=0.25)
+    plt.show()
 
 
 def plot_sdf_results_over_line(model, data, lines=(-0.5, 0, 0.5), save_name="", max_num_data=10):
@@ -136,6 +151,7 @@ def plot_sdf_results_over_line(model, data, lines=(-0.5, 0, 0.5), save_name="", 
             for line in lines:
                 plot_mesh_onto_line(mesh, val=pred, y=line)
                 plot_mesh_onto_line(mesh, val=gt, y=line, linestyle="--")
+            plt.subplots_adjust(wspace=0.2)
             plt.show()
 
 

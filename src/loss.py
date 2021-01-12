@@ -48,6 +48,18 @@ def clamped_loss(pred, data, loss_func=nn.L1Loss, maxv=0.05, **kwargs):
     return loss_clamped_reduced
 
 
+def corner_loss(pred, data, loss_func=nn.L1Loss):
+    points = data.x[:, :2]
+    img = data.x[:, 2]
+    center = torch.mean(points[img == 1], dim=0)
+    dist_from_center = torch.sum(torch.square(points - center), dim=1) - 1000 * (img == 0)
+    mask = dist_from_center > torch.sort(dist_from_center)[0][-5]
+    loss = loss_func(reduction='none')(pred, data.y)
+    loss_corner = loss[mask]
+    loss_corner_reduced = torch.mean(loss_corner)
+    return loss_corner_reduced
+
+
 def deep_mind_loss(pred, data, loss_func=nn.L1Loss, full_output=True, last_loss_only=False, **kwargs):
     if full_output:
         loss = [loss_func()(out[1], data.y) for out in pred]
@@ -60,17 +72,21 @@ def deep_mind_loss(pred, data, loss_func=nn.L1Loss, full_output=True, last_loss_
     return loss
 
 
-def corner_loss(pred, data, loss_func=nn.L1Loss):
-    points = data.x[:, :2]
-    img = data.x[:, 2]
-    center = torch.mean(points[img == 1], dim=0)
-    dist_from_center = torch.sum(torch.square(points - center), dim=1) - 1000 * (img == 0)
-    mask = dist_from_center > torch.sort(dist_from_center)[0][-5]
-    loss = loss_func(reduction='none')(pred, data.y)
-    loss_corner = loss[mask]
-    loss_corner_reduced = torch.mean(loss_corner)
-    return loss_corner_reduced
+def banded_loss(xpred, xtrue, loss_func=nn.L1Loss, lb=0., ub=1.):
+    loss_vals = loss_func(reduction='none')(xpred, xtrue)
+    mask = torch.logical_and(xtrue < ub, xtrue > lb)
+    if torch.any(mask):
+        loss = torch.mean(loss_vals[mask])
+    else:
+        loss = 0.
+    return loss
 
+
+def level_set_loss(pred, data, loss_func=nn.L1Loss, level_sets=[-0.1, -0.05, 0, 0.05, 0.1]):
+    loss = 0
+    for lb, ub in zip(level_sets[:-1], level_sets[1:]):
+        loss += sum([banded_loss(out[1], data.y, loss_func=loss_func, lb=lb, ub=ub) for out in pred]) / len(pred)
+    return loss
 
 # def eplison_loss(pred, data, eps=0, **kwargs):
 #     eps_loss = torch.relu(torch.abs(pred-data.y) - eps)

@@ -111,7 +111,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
                 area = np.mean(x[:, :2], keepdims=True)
                 u = np.concatenate((cent, area), axis=1)
             else:
-                u = np.ones((1, 3))
+                u = np.zeros((1, 1))
 
             graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
                               y=torch.from_numpy(y).type(torch.float32),
