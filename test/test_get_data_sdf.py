@@ -1,4 +1,4 @@
-from src import get_sdf_data_loader
+from case_studies.sdf import get_sdf_data_loader
 
 data_folder = ""
 batch_size = 1
