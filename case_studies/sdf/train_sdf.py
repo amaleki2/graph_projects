@@ -38,7 +38,7 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epoch=500, print_every
         if epoch % print_every == 0:
             test_epoch_loss = []
             for data in test_data:
-                losses = forward_step(model, data, loss_funcs, device, training=False)
+                losses = train_forward_step(model, data, loss_funcs, device, training=False)
                 test_epoch_loss.append([ll.item() for ll in losses])
             test_epoch_loss_mean = np.mean(test_epoch_loss, axis=0)
             test_losses_list.append(test_epoch_loss_mean)

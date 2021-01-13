@@ -1,8 +1,68 @@
+import os
 import torch
 import meshio
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
+from .train_utils import get_device, forward_step
+
+
+def train_sdf(model, train_data, test_data, loss_funcs, n_epoch=500, print_every=25, use_cpu=False,
+              save_name="", lr_0=0.001, step_size=50, gamma=0.5, resume_training=False, **losses_params):
+    device = get_device(use_cpu)
+    model = model.to(device=device)
+    if resume_training:
+        train_losses_list = np.load("save_dir/loss_train_" + save_name + ".npy").tolist()
+        test_losses_list = np.load("save_dir/loss_test_" + save_name + ".npy").tolist()
+        model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
+        i_start = len(train_losses_list)
+        n_scheduler_activated = i_start // step_size
+        lr_0 = lr_0 / (gamma ** n_scheduler_activated)
+    else:
+        i_start = 0
+        train_losses_list = []
+        test_losses_list = []
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr_0)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+
+    for epoch in range(i_start, n_epoch + 1):
+        epoch_loss = []
+        for data in train_data:
+            optimizer.zero_grad()
+            losses = forward_step(model, data, loss_funcs, device, **losses_params)
+            epoch_loss.append([ll.item() for ll in losses])
+            train_loss = sum(losses)
+            train_loss.backward()
+            optimizer.step()
+        epoch_loss_mean = np.mean(epoch_loss, axis=0)
+        train_losses_list.append(epoch_loss_mean)
+
+        if epoch % print_every == 0:
+            test_epoch_loss = []
+            for data in test_data:
+                losses = forward_step(model, data, loss_funcs, device, training=False)
+                test_epoch_loss.append([ll.item() for ll in losses])
+            test_epoch_loss_mean = np.mean(test_epoch_loss, axis=0)
+            test_losses_list.append(test_epoch_loss_mean)
+            print_and_save(model, epoch, train_losses_list, test_losses_list, optimizer, save_name)
+
+        scheduler.step()
+
+
+def print_and_save(model, epoch, train_losses_list, test_losses_list, optimizer, save_name):
+    lr = optimizer.param_groups[0]['lr']
+    print("epoch %4s: learning rate=%0.2e" %(str(epoch), lr), end="")
+    print(", train loss: ", end="")
+    print(['%.4f' % n for n in train_losses_list[-1]], end="")
+    print(", test loss: ", end="")
+    print(['%.4f' % n for n in test_losses_list[-1]])
+
+    if not os.path.isdir("save_dir"):
+        os.mkdir("save_dir")
+    torch.save(model.state_dict(), "save_dir/model_" + save_name + ".pth")
+    np.save("save_dir/loss_train_" + save_name + ".npy", train_losses_list)
+    np.save("save_dir/loss_test_" + save_name + ".npy", test_losses_list)
 
 
 def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None):
@@ -48,12 +108,9 @@ def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None, linewidth=1,
     cntr2 = ax2.tricontourf(xx, yy, pred_vals, cmap="RdBu_r", levels=20)
     fig.colorbar(cntr2, ax=ax2)
     ax2.set(xlim=(-1, 1), ylim=(-1, 1))
-    
-    if levels:
-        new_levels = [(l + r) / 2 for (l, r) in zip(levels[1:], levels[:-1])] + levels
-        new_levels = sorted(new_levels)
-    else:
-        new_levels = None
+
+    new_levels = [(l + r) / 2 for (l, r) in zip(levels[1:], levels[:-1])] + levels
+    new_levels = sorted(new_levels)
     cntr3 = ax3.tricontour(xx, yy, true_vals, levels=new_levels, linewidths=linewidth, colors='k')
     plt.clabel(cntr3, fmt='%0.2f', colors='k', fontsize=10)
     cntr3 = ax3.tricontour(xx, yy, pred_vals, levels=new_levels, linewidths=linewidth, colors='r', linestyles='--')
@@ -154,3 +211,7 @@ def plot_mesh(mesh, dims=2, node_labels=False, vals=None, with_colorbar=False, l
 
     if vals is not None:
         return p
+
+
+
+
