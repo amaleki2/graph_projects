@@ -4,8 +4,9 @@ import numpy as np
 from src import get_device, train_forward_step
 
 
-def train_sdf(model, train_data, test_data, loss_funcs, n_epoch=500, print_every=25, use_cpu=False,
-              save_name="", lr_0=0.001, step_size=50, gamma=0.5, resume_training=False, **losses_params):
+def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_every=25, use_cpu=False,
+              save_name="", lr_0=0.001, lr_scheduler_step_size=50, lr_scheduler_gamma=0.5,
+              resume_training=False, **losses_params):
     device = get_device(use_cpu)
     model = model.to(device=device)
     if resume_training:
@@ -13,17 +14,17 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epoch=500, print_every
         test_losses_list = np.load("save_dir/loss_test_" + save_name + ".npy").tolist()
         model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
         i_start = len(train_losses_list)
-        n_scheduler_activated = i_start // step_size
-        lr_0 = lr_0 / (gamma ** n_scheduler_activated)
+        n_scheduler_activated = i_start // lr_scheduler_step_size
+        lr_0 = lr_0 / (lr_scheduler_gamma ** n_scheduler_activated)
     else:
         i_start = 0
         train_losses_list = []
         test_losses_list = []
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr_0)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_scheduler_step_size, gamma=lr_scheduler_gamma)
 
-    for epoch in range(i_start, n_epoch + 1):
+    for epoch in range(i_start, n_epochs + 1):
         epoch_loss = []
         for data in train_data:
             optimizer.zero_grad()

@@ -60,13 +60,13 @@ def corner_loss(pred, data, loss_func=nn.L1Loss):
     return loss_corner_reduced
 
 
-def deep_mind_loss(pred, data, loss_func=nn.L1Loss, full_output=True, last_loss_only=False, **kwargs):
-    if full_output:
+def graph_loss(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
+    if aggr_func is None:
+        aggr_func = lambda x: sum(x) / len(x)
+
+    if isinstance(pred, list):
         loss = [loss_func()(out[1], data.y) for out in pred]
-        if last_loss_only:
-            loss = loss[-1]
-        else:
-            loss = sum(loss) / len(loss)
+        loss = aggr_func(loss)
     else:
         loss = loss_func()(pred[1], data.y)
     return loss
