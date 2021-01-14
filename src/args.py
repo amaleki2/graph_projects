@@ -14,6 +14,8 @@ def parse_arguments():
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
     parser.add_argument('--prox-radius', dest='prox_radius', type=float, default=0.2,
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
+    parser.add_argument('--global-feat-on', dest='global_features_on', type=bool, default=True,
+                        help='use global features or not')
 
     # model parameters
     parser.add_argument('--network-name', dest='network_name', type=str, required=True,
