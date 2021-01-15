@@ -406,7 +406,7 @@ class EncodeProcessDecode(torch.nn.Module):
             edge_attr = torch.cat((edge_attr0, edge_attr), dim=1)
             node_attr = torch.cat((node_attr0, node_attr), dim=1)
             global_attr = torch.cat((global_attr0, global_attr), dim=1)
-            if self.process_weights_shared:
+            if not self.process_weights_shared:
                 edge_attr, node_attr, global_attr = self.processors[i](edge_attr, node_attr, global_attr, edge_index, batch)
             else:
                 edge_attr, node_attr, global_attr = self.processors(edge_attr, node_attr, global_attr, edge_index, batch)
