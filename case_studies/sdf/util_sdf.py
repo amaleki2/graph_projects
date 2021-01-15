@@ -29,20 +29,20 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
             output = model(data)
             pred_vals = output_func(output)
 
-            plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=levels, linewidth=1, linecolor='k')
+            plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=levels)
             plt.show()
 
 
-def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None, linewidth=1, linecolor='k'):
+def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None):
     fig, (ax1, ax2, ax3) = plt.subplots(figsize=(10, 5), nrows=1, ncols=3)
 
-    cntr1 = ax1.tricontour(xx, yy, true_vals, levels=levels, linewidths=linewidth, colors=linecolor)
+    cntr1 = ax1.tricontour(xx, yy, true_vals, levels=levels, linewidths=1, colors='k')
     plt.clabel(cntr1, fmt='%0.2f', colors='k', fontsize=10)
     cntr1 = ax1.tricontourf(xx, yy, true_vals, cmap="RdBu_r", levels=20)
     fig.colorbar(cntr1, ax=ax1)
     ax1.set(xlim=(-1, 1), ylim=(-1, 1))
 
-    cntr2 = ax2.tricontour(xx, yy, pred_vals, levels=levels, linewidths=linewidth, colors=linecolor)
+    cntr2 = ax2.tricontour(xx, yy, pred_vals, levels=levels, linewidths=1, colors='k')
     plt.clabel(cntr2, fmt='%0.2f', colors='k', fontsize=10)
     cntr2 = ax2.tricontourf(xx, yy, pred_vals, cmap="RdBu_r", levels=20)
     fig.colorbar(cntr2, ax=ax2)
@@ -53,9 +53,9 @@ def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None, linewidth=1,
         new_levels = sorted(new_levels)
     else:
         new_levels = None
-    cntr3 = ax3.tricontour(xx, yy, true_vals, levels=new_levels, linewidths=linewidth, colors='k')
+    cntr3 = ax3.tricontour(xx, yy, true_vals, levels=new_levels, linewidths=2, colors='k')
     plt.clabel(cntr3, fmt='%0.2f', colors='k', fontsize=10)
-    cntr3 = ax3.tricontour(xx, yy, pred_vals, levels=new_levels, linewidths=linewidth, colors='r', linestyles='--')
+    cntr3 = ax3.tricontour(xx, yy, pred_vals, levels=new_levels, linewidths=1, colors='r', linestyles='--')
     ax3.set(xlim=(-1, 1), ylim=(-1, 1))
 
     plt.subplots_adjust(wspace=0.25)
