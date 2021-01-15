@@ -38,6 +38,10 @@ def parse_arguments():
                         help='number of output global features')
     parser.add_argument('--n-process', dest='n_process', type=int, default=5,
                         help='number of output global features')
+    parser.add_argument('--weights-shared', dest='weights_shared', type=bool, default=False,
+                        help='whether processors share weight or not')
+    parser.add_argument('--full-output', dest='full_output', type=bool, default=False,
+                        help='whether model returns all processors outputs')
     parser.add_argument('--head', dest='head', type=int, default=1,
                         help='number of heads in GAT')
     parser.add_argument('--negative-slope', dest='negative_slope', type=float, default=0.2,

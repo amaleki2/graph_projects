@@ -10,7 +10,6 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
     test_loss_history = np.load("save_dir/loss_test_" + save_name + ".npy")
     plt.plot(train_loss_history, label="train loss")
     plt.plot(np.linspace(0, len(train_loss_history)-1, len(test_loss_history)), test_loss_history, label="test loss")
-    plt.ylim([9e-4, 2e-1])
     plt.yscale('log')
     plt.legend()
 

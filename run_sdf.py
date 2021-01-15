@@ -22,6 +22,8 @@ n_edge_out       = args.n_edge_out       # EncodeProcessDecode specific
 n_global_in      = args.n_global_in      # EncodeProcessDecode specific
 n_global_out     = args.n_global_out     # EncodeProcessDecode specific
 n_process        = args.n_process        # EncodeProcessDecode specific
+full_output      = args.full_output      # EncodeProcessDecode specific
+weights_shared   = args.weights_shared   # EncodeProcessDecode specific
 
 # train parameters
 lr_0        = args.lr
@@ -45,7 +47,8 @@ elif network_name == "epd":
     model = EncodeProcessDecode(n_edge_feat_in=n_edge_in, n_edge_feat_out=n_edge_out,
                                 n_node_feat_in=n_node_in, n_node_feat_out=n_node_out,
                                 n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
-                                mlp_latent_size=n_hidden[0], num_processing_steps=n_process)
+                                mlp_latent_size=n_hidden[0], num_processing_steps=n_process,
+                                process_weights_shared=weights_shared, full_output=full_output)
     loss_funcs = [graph_loss]
 else:
     raise(ValueError("model name %s is not recognized" %network_name))

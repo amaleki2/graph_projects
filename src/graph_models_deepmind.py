@@ -12,20 +12,21 @@ def get_edge_counts(edge_index, batch):
     return torch.bincount(batch[edge_index[0, :]])
 
 
-def make_mlp_model(n_input, latent_sizes, n_output, activate_final=False, normalize=True, initializer=False):
+def make_mlp_model(n_input, latent_sizes, n_output, activate_final=False, normalize=True, _initializer=False):
     if latent_sizes is None:
         mlp = [Linear(n_input, n_output)]
     elif isinstance(latent_sizes, int):
         mlp = [Linear(n_input, latent_sizes),      ReLU(),
                Linear(latent_sizes, latent_sizes), ReLU(),
                Linear(latent_sizes, n_output)]
-    elif isinstance(latent_sizes, list):
-        mlp = [Linear(n_input, latent_sizes[0]), ReLU()]
-        for s in latent_sizes:
-            mlp.append(Linear(s, s))
-            mlp.append(ReLU())
+    # elif isinstance(latent_sizes, list):
+    #     mlp = [Linear(n_input, latent_sizes[0]), ReLU()]
+    #     for s in latent_sizes:
+    #         mlp.append(Linear(s, s))
+    #         mlp.append(ReLU())
+    #     mlp.append(Linear(latent_sizes[-1], n_output))
     else:
-        raise(ValueError("latent sizes should be None, int or a list, received a %s" % (type(latent_sizes))))
+        raise(ValueError("latent sizes should be None or int, received a %s" % (type(latent_sizes))))
 
     if activate_final:
         mlp.append(ReLU())
@@ -34,7 +35,7 @@ def make_mlp_model(n_input, latent_sizes, n_output, activate_final=False, normal
     mlp = Sequential(*mlp)
 
     # this is only for debugging
-    if initializer:
+    if _initializer:
         for layer in mlp:
             if layer._get_name() == "Linear":
                 layer.weight.data.fill_(0.01)
@@ -366,7 +367,7 @@ class EncodeProcessDecode(torch.nn.Module):
                                latent_sizes=mlp_latent_size,
                                activate_final=True,
                                normalize=normalize)
-        if self.process_weights_shared:
+        if not self.process_weights_shared:
             self.processors = torch.nn.ModuleList()
             for _ in range(num_processing_steps):
                 self.processors.append(processor(2 * mlp_latent_size, mlp_latent_size,
@@ -376,7 +377,7 @@ class EncodeProcessDecode(torch.nn.Module):
                                                  activate_final=True,
                                                  normalize=normalize))
         else:
-            self.processor = processor(2 * mlp_latent_size, mlp_latent_size,
+            self.processors = processor(2 * mlp_latent_size, mlp_latent_size,
                                        2 * mlp_latent_size, mlp_latent_size,
                                        2 * mlp_latent_size, mlp_latent_size,
                                        latent_sizes=mlp_latent_size,
@@ -406,9 +407,9 @@ class EncodeProcessDecode(torch.nn.Module):
             node_attr = torch.cat((node_attr0, node_attr), dim=1)
             global_attr = torch.cat((global_attr0, global_attr), dim=1)
             if self.process_weights_shared:
-                edge_attr, node_attr, global_attr = self.processor[i](edge_attr, node_attr, global_attr, edge_index, batch)
+                edge_attr, node_attr, global_attr = self.processors[i](edge_attr, node_attr, global_attr, edge_index, batch)
             else:
-                edge_attr, node_attr, global_attr = self.processor(edge_attr, node_attr, global_attr, edge_index, batch)
+                edge_attr, node_attr, global_attr = self.processors(edge_attr, node_attr, global_attr, edge_index, batch)
             edge_attr_de, node_attr_de, global_attr_de = self.decoder(edge_attr, node_attr, global_attr, edge_index, batch)
             edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de, global_attr_de, edge_index, batch)
             output_ops.append((edge_attr_op, node_attr_op, global_attr_op))
