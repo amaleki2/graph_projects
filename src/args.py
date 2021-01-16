@@ -14,13 +14,13 @@ def parse_arguments():
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
     parser.add_argument('--prox-radius', dest='prox_radius', type=float, default=0.2,
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
-    parser.add_argument('--global-feat-on', dest='global_features_on', type=bool, default=True,
+    parser.add_argument('--global-feat-on', dest='global_features_on', type=int, default=1, choices=[0, 1],
                         help='use global features or not')
 
     # model parameters
     parser.add_argument('--network-name', dest='network_name', type=str, required=True,
                         choices=['gat', 'gcn', 'epd'], help='network name, options: `gat`, `gcn`, `epd`')
-    parser.add_argument('--last-layer-skip', dest='last_layer_skip', type=bool, default=True,
+    parser.add_argument('--last-layer-skip', dest='last_layer_skip', type=int, default=1, choices=[0, 1],
                         help='whether last layer should get a skip connection from the input or not')
     parser.add_argument('--n-hidden', dest='n_hidden', nargs='+', type=int, default=64,
                         help='number of neurons of hidden layers')
@@ -38,9 +38,9 @@ def parse_arguments():
                         help='number of output global features')
     parser.add_argument('--n-process', dest='n_process', type=int, default=5,
                         help='number of output global features')
-    parser.add_argument('--weights-shared', dest='weights_shared', type=bool, default=False,
+    parser.add_argument('--weights-shared', dest='weights_shared', type=int, default=1, choices=[0, 1],
                         help='whether processors share weight or not')
-    parser.add_argument('--full-output', dest='full_output', type=bool, default=False,
+    parser.add_argument('--full-output', dest='full_output', type=int, default=0, choices=[0, 1],
                         help='whether model returns all processors outputs')
     parser.add_argument('--head', dest='head', type=int, default=1,
                         help='number of heads in GAT')

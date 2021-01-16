@@ -378,11 +378,11 @@ class EncodeProcessDecode(torch.nn.Module):
                                                  normalize=normalize))
         else:
             self.processors = processor(2 * mlp_latent_size, mlp_latent_size,
-                                       2 * mlp_latent_size, mlp_latent_size,
-                                       2 * mlp_latent_size, mlp_latent_size,
-                                       latent_sizes=mlp_latent_size,
-                                       activate_final=True,
-                                       normalize=normalize)
+                                        2 * mlp_latent_size, mlp_latent_size,
+                                        2 * mlp_latent_size, mlp_latent_size,
+                                        latent_sizes=mlp_latent_size,
+                                        activate_final=True,
+                                        normalize=normalize)
 
         self.decoder = decoder(mlp_latent_size, mlp_latent_size,
                                mlp_latent_size, mlp_latent_size,
