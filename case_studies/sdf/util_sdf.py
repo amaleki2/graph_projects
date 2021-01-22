@@ -9,7 +9,7 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
     train_loss_history = np.load("save_dir/loss_train_" + save_name + ".npy")
     test_loss_history = np.load("save_dir/loss_test_" + save_name + ".npy")
     plt.plot(train_loss_history, label="train loss")
-    plt.plot(np.linspace(0, len(train_loss_history)-1, len(test_loss_history)), test_loss_history, label="test loss")
+    plt.plot(np.linspace(0, len(train_loss_history) - 1, len(test_loss_history)), test_loss_history, label="test loss")
     plt.yscale('log')
     plt.legend()
 
@@ -34,31 +34,36 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
 
 
 def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None):
-    fig, (ax1, ax2, ax3) = plt.subplots(figsize=(10, 5), nrows=1, ncols=3)
+    fig, (ax1, ax2, ax3) = plt.subplots(figsize=(12, 5), nrows=1, ncols=3)
 
     cntr1 = ax1.tricontour(xx, yy, true_vals, levels=levels, linewidths=1, colors='k')
     plt.clabel(cntr1, fmt='%0.2f', colors='k', fontsize=10)
     cntr1 = ax1.tricontourf(xx, yy, true_vals, cmap="RdBu_r", levels=20)
     fig.colorbar(cntr1, ax=ax1)
     ax1.set(xlim=(-1, 1), ylim=(-1, 1))
+    ax1.set_xticks([]);
+    ax1.set_yticks([])
 
     cntr2 = ax2.tricontour(xx, yy, pred_vals, levels=levels, linewidths=1, colors='k')
     plt.clabel(cntr2, fmt='%0.2f', colors='k', fontsize=10)
     cntr2 = ax2.tricontourf(xx, yy, pred_vals, cmap="RdBu_r", levels=20)
     fig.colorbar(cntr2, ax=ax2)
     ax2.set(xlim=(-1, 1), ylim=(-1, 1))
-    
-    if levels:
-        new_levels = [(l + r) / 2 for (l, r) in zip(levels[1:], levels[:-1])] + levels
-        new_levels = sorted(new_levels)
-    else:
-        new_levels = None
+    ax2.set_xticks([]);
+    ax2.set_yticks([])
+    #     if levels:
+    #         new_levels = [(l + r) / 2 for (l, r) in zip(levels[1:], levels[:-1])] + levels
+    #         new_levels = sorted(new_levels)
+    #     else:
+    #         new_levels = None
+    new_levels = levels
     cntr3 = ax3.tricontour(xx, yy, true_vals, levels=new_levels, linewidths=2, colors='k')
     plt.clabel(cntr3, fmt='%0.2f', colors='k', fontsize=10)
     cntr3 = ax3.tricontour(xx, yy, pred_vals, levels=new_levels, linewidths=1, colors='r', linestyles='--')
     ax3.set(xlim=(-1, 1), ylim=(-1, 1))
-
-    plt.subplots_adjust(wspace=0.25)
+    ax3.set_xticks([]);
+    ax3.set_yticks([])
+    plt.subplots_adjust(wspace=0.5)
     plt.show()
 
 
@@ -120,7 +125,8 @@ def plot_mesh_onto_line(mesh, val, x=None, y=None, show=False, linestyle="-"):
     if show: plt.show()
 
 
-def plot_mesh(mesh, dims=2, node_labels=False, vals=None, with_colorbar=False, levels=None, border=None, ticks_off=True):
+def plot_mesh(mesh, dims=2, node_labels=False, vals=None, with_colorbar=False, levels=None, border=None,
+              ticks_off=True):
     if not isinstance(mesh.points, np.ndarray):
         mesh.points = np.array(mesh.points)
     nodes_x = mesh.points[:, 0]
