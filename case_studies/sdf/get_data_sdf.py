@@ -58,7 +58,7 @@ def add_self_edges(edges):
 
 def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                         reversed_edge_already_included=False, self_edge_already_included=False,
-                        edge_method='edge', edge_params=None, no_global=False):
+                        edge_method='edge', edge_params=None, no_global=False, with_vertices=False):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -69,11 +69,25 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 
     for idx, graph_data_list in zip([train_idx, test_idx], [train_graph_data_list, test_graph_data_list]):
         for i in tqdm.tqdm(idx):
-            mesh_sdf = meshio.read(data_folder + "sdf%d.vtk" % i)
+            mesh_file = data_folder + "sdf%d.vtk" % i
+            mesh_sdf = meshio.read(mesh_file)
             x = mesh_sdf.points.copy()
             y = mesh_sdf.points.copy()[:, 2]
             x[:, 2] = y < 0
             x = x.astype(float)
+            if with_vertices:
+                x = np.hstack((x, np.zeros((len(x), 1))))
+                vertices_file = mesh_file.replace('vtk', 'npy')
+                vertices = np.load(vertices_file)
+                for v in vertices:
+                    idx = np.isclose(x[:, :2], v, atol=1e-8, rtol=1e-8).all(axis=1)
+                    x[idx, 3] = 1
+                # is_vertex = (np.min(distance_matrix(x[:, :2], vertices), axis=1, keepdims=True) < 1e-3).astype(int)
+                # assert is_vertex.sum() == len(vertices)
+                # x = np.concatenate((x, is_vertex), axis=1)
+                # if x[:, 3].sum() != len(vertices):
+                #     print("kir khar")
+                assert x[:, 3].sum() == len(vertices)
             y = y / np.sqrt(8)
             y = y.reshape(-1, 1)
 
@@ -90,9 +104,9 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
             elif edge_method == 'both':
                 edges1 = cells_to_edges(cells.T)
                 radius = edge_params['radius']
-                edges2 = vertices_to_proximity(x, radius)
+                knn_idx = data_folder + "knn%d.npy" % i
+                edges2 = vertices_to_proximity(x, radius, cache_knn=knn_idx)
                 edges = np.concatenate((edges1, edges2), axis=0)
-                edge_params['e1'] = len(edges1)  # will be used later for edge_attr
             else:
                 raise(NotImplementedError("method %s is not recognized" % edge_method))
             edges = edges.T
