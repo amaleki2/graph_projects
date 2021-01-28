@@ -22,14 +22,16 @@ def vertices_to_proximity(x, radius, cache_knn=None):
         dist_val, dist_idx = np.load(cache_knn)
         dist_idx = dist_idx.astype(int)
     else:
-        dist = distance_matrix(x[:, :2], x[:, :2])
+        dist = distance_matrix(x[:, :-1], x[:, :-1])
         #dist += dist.max() * np.tril(np.ones_like(dist))  # to avoid duplication later
         dist_idx = np.argsort(dist, axis=1)[:, :25]
         dist_val = np.sort(dist, axis=1)[:, :25]
         if cache_knn is not None:
             np.save(cache_knn, np.array([dist_val, dist_idx]))
     neighbours_idx = np.where(dist_val < radius)
-    edges = [neighbours_idx[0], dist_idx[neighbours_idx[0], neighbours_idx[1]]]
+    senders = neighbours_idx[0].astype(np.int32)
+    receivers = neighbours_idx[1].astype(np.int32)
+    edges = [senders, dist_idx[senders, receivers]]
     edges = np.array(edges).T
     return edges
 
@@ -85,8 +87,8 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
                 # is_vertex = (np.min(distance_matrix(x[:, :2], vertices), axis=1, keepdims=True) < 1e-3).astype(int)
                 # assert is_vertex.sum() == len(vertices)
                 # x = np.concatenate((x, is_vertex), axis=1)
-                # if x[:, 3].sum() != len(vertices):
-                #     print("kir khar")
+                if x[:, 3].sum() != len(vertices):
+                    print("kir khar")
                 assert x[:, 3].sum() == len(vertices)
             y = y / np.sqrt(8)
             y = y.reshape(-1, 1)
@@ -120,7 +122,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 
             if not no_global:
                 cent = np.mean(x[x[:, 2] == 1, :2], axis=0, keepdims=True)
-                area = np.mean(x[:, :2], keepdims=True)
+                area = np.mean(x[:, 2:], keepdims=True)
                 u = np.concatenate((cent, area), axis=1)
             else:
                 u = np.zeros((1, 1))
@@ -131,6 +133,74 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
                               edge_index=torch.from_numpy(edges).type(torch.long),
                               edge_attr=torch.from_numpy(edge_feats).type(torch.float32),
                               face=torch.from_numpy(cells).type(torch.long))
+            graph_data_list.append(graph_data)
+    train_data = DataLoader(train_graph_data_list, batch_size=batch_size)
+    test_data = DataLoader(test_graph_data_list, batch_size=batch_size)
+    return train_data, test_data
+
+
+def get_sdf_3d_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
+                           reversed_edge_already_included=False, self_edge_already_included=False,
+                           edge_method='edge', edge_params=None, no_global=False, with_vertices=False,
+                           remove_repeated_edges=True):
+    # random splitting into train and test
+    random_idx = np.random.permutation(range(i_start, n_objects))
+    train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
+    test_idx = random_idx[int((1 - eval_frac) * n_objects):]
+
+    train_graph_data_list = []
+    test_graph_data_list = []
+
+    for idx, graph_data_list in zip([train_idx, test_idx], [train_graph_data_list, test_graph_data_list]):
+        for i in tqdm.tqdm(idx):
+            surface_points = np.load(os.path.join(data_folder, "stl_file_%d_surface_points.npy" % i))
+            surface_points_sdf = np.zeros((len(surface_points), 1))
+            surface_points = np.concatenate((surface_points, surface_points_sdf), axis=1)
+            sdf_points = np.load(os.path.join(data_folder, "stl_file_%d_sdf_points.npy" % i))
+            x = np.concatenate((surface_points, sdf_points))
+            y = x.copy()[:, 3]
+            x[:, 3] = y <= 0
+            x = x.astype(np.float32)
+            if with_vertices:
+                surface_points_feats = np.ones((len(surface_points), 1))
+                sdf_points_feats = np.zeros((len(surface_points), 1))
+                new_feat = np.concatenate((surface_points_feats, sdf_points_feats))
+                x = np.concatenate((x, new_feat), axis=1)
+
+            y = y / np.sqrt(12)
+            y = y.reshape(-1, 1)
+
+            if edge_method in ['edge', 'both']:
+                raise(ValueError("3d data does not have connectivity data. use proximity instead."))
+            elif edge_method == 'proximity':
+                # knn_idx = data_folder + "knn%d.npy" % i
+                knn_idx = os.path.join(data_folder, "stl_file_%d_knn.npy" % i)
+                radius = edge_params['radius']
+                edges = vertices_to_proximity(x, radius, cache_knn=knn_idx)
+            else:
+                raise(NotImplementedError("method %s is not recognized" % edge_method))
+            edges = edges.T
+
+            if not reversed_edge_already_included:
+                edges = add_reversed_edges(edges)
+            if not self_edge_already_included:
+                edges = add_self_edges(edges)
+            if remove_repeated_edges:
+                edges = np.unique(edges, axis=1)   # remove repeated edges
+            edge_feats = compute_edge_features(x, edges)
+
+            if not no_global:
+                cent = np.mean(x[x[:, 3] == 1, :3], axis=0, keepdims=True)
+                area = np.mean(x[:, 3:], keepdims=True)
+                u = np.concatenate((cent, area), axis=1)
+            else:
+                u = np.zeros((1, 1))
+
+            graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
+                              y=torch.from_numpy(y).type(torch.float32),
+                              u=torch.from_numpy(u).type(torch.float32),
+                              edge_index=torch.from_numpy(edges).type(torch.long),
+                              edge_attr=torch.from_numpy(edge_feats).type(torch.float32))
             graph_data_list.append(graph_data)
     train_data = DataLoader(train_graph_data_list, batch_size=batch_size)
     test_data = DataLoader(test_graph_data_list, batch_size=batch_size)
