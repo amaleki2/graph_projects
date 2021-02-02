@@ -43,8 +43,7 @@ model = EncodeProcessDecode(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out=n_edg
                             mlp_latent_size=mlp_latent_size, num_processing_steps=num_processing_steps,
                             encoder=GraphNetworkIndependentBlock, decoder=GraphNetworkIndependentBlock,
                             processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
-                            full_output=True
-                            )
+                            full_output=True)
 
 # choose loss functions
 save_name = "deep_mind"
