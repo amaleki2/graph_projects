@@ -60,8 +60,7 @@ def add_self_edges(edges):
 
 def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                         reversed_edge_already_included=False, self_edge_already_included=False,
-                        edge_method='edge', edge_params=None, no_global=False, with_vertices=False,
-                        completion_data=True):
+                        edge_method='edge', edge_params=None, no_global=False):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -76,109 +75,9 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
             mesh_sdf = meshio.read(mesh_file)
             x = mesh_sdf.points.copy()
             y = mesh_sdf.points.copy()[:, 2:]
-            if completion_data:
-                unit_box = np.logical_or(np.abs(x[:, 0]) > 1, np.abs(x[:, 1]) > 1)
-                x[unit_box, 2] = 0
-            else:
-                x[:, 2] = x[:, 2] < 0
+            x[:, 2] = x[:, 2] < 0
             x = x.astype(float)
             y = y.astype(float)
-            if with_vertices:
-                x = np.hstack((x, np.zeros((len(x), 1))))
-                vertices_file = mesh_file.replace('vtk', 'npy')
-                vertices = np.load(vertices_file)
-                for v in vertices:
-                    idx = np.isclose(x[:, :2], v, atol=1e-8, rtol=1e-8).all(axis=1)
-                    x[idx, 3] = 1
-                # is_vertex = (np.min(distance_matrix(x[:, :2], vertices), axis=1, keepdims=True) < 1e-3).astype(int)
-                # assert is_vertex.sum() == len(vertices)
-                # x = np.concatenate((x, is_vertex), axis=1)
-                if x[:, 3].sum() != len(vertices):
-                    print("kir khar")
-                assert x[:, 3].sum() == len(vertices)
-            #y = y / np.sqrt(8)
-            #y = y.reshape(-1, 1)
-
-            cells = [x for x in mesh_sdf.cells if x.type == 'triangle']
-            cells = cells[0].data.astype(int)
-            cells = np.array(cells).T
-
-            if edge_method == 'edge':
-                edges = cells_to_edges(cells.T)
-            elif edge_method == 'proximity':
-                knn_idx = data_folder + "knn%d.npy" % i
-                radius = edge_params['radius']
-                edges = vertices_to_proximity(x, radius, cache_knn=knn_idx)
-            elif edge_method == 'both':
-                edges1 = cells_to_edges(cells.T)
-                radius = edge_params['radius']
-                knn_idx = data_folder + "knn%d.npy" % i
-                edges2 = vertices_to_proximity(x, radius, cache_knn=knn_idx)
-                edges = np.concatenate((edges1, edges2), axis=0)
-            else:
-                raise(NotImplementedError("method %s is not recognized" % edge_method))
-            edges = edges.T
-
-            if not reversed_edge_already_included:
-                edges = add_reversed_edges(edges)
-            if not self_edge_already_included:
-                edges = add_self_edges(edges)
-            edges = np.unique(edges, axis=1)   # remove repeated edges
-            edge_feats = compute_edge_features(x, edges)
-
-            if not no_global:
-                cent = np.mean(x[x[:, 2] == 1, :2], axis=0, keepdims=True)
-                area = np.mean(x[:, 2:], keepdims=True)
-                u = np.concatenate((cent, area), axis=1)
-            else:
-                u = np.zeros((1, 1))
-
-            graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
-                              y=torch.from_numpy(y).type(torch.float32),
-                              u=torch.from_numpy(u).type(torch.float32),
-                              edge_index=torch.from_numpy(edges).type(torch.long),
-                              edge_attr=torch.from_numpy(edge_feats).type(torch.float32),
-                              face=torch.from_numpy(cells).type(torch.long))
-            graph_data_list.append(graph_data)
-    train_data = DataLoader(train_graph_data_list, batch_size=batch_size)
-    test_data = DataLoader(test_graph_data_list, batch_size=batch_size)
-    return train_data, test_data
-
-
-def get_sdf_completion_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
-                                   reversed_edge_already_included=False, self_edge_already_included=False,
-                                   edge_method='edge', edge_params=None, no_global=False, with_vertices=False):
-    # random splitting into train and test
-    random_idx = np.random.permutation(range(i_start, n_objects))
-    train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
-    test_idx = random_idx[int((1 - eval_frac) * n_objects):]
-
-    train_graph_data_list = []
-    test_graph_data_list = []
-
-    for idx, graph_data_list in zip([train_idx, test_idx], [train_graph_data_list, test_graph_data_list]):
-        for i in tqdm.tqdm(idx):
-            mesh_file = data_folder + "sdf%d.vtk" % i
-            mesh_sdf = meshio.read(mesh_file)
-            x = mesh_sdf.points.copy()
-            y = mesh_sdf.points.copy()[:, 2]
-            x[:, 2] = y < 0
-            x = x.astype(float)
-            if with_vertices:
-                x = np.hstack((x, np.zeros((len(x), 1))))
-                vertices_file = mesh_file.replace('vtk', 'npy')
-                vertices = np.load(vertices_file)
-                for v in vertices:
-                    idx = np.isclose(x[:, :2], v, atol=1e-8, rtol=1e-8).all(axis=1)
-                    x[idx, 3] = 1
-                # is_vertex = (np.min(distance_matrix(x[:, :2], vertices), axis=1, keepdims=True) < 1e-3).astype(int)
-                # assert is_vertex.sum() == len(vertices)
-                # x = np.concatenate((x, is_vertex), axis=1)
-                if x[:, 3].sum() != len(vertices):
-                    print("kir khar")
-                assert x[:, 3].sum() == len(vertices)
-            y = y / np.sqrt(8)
-            y = y.reshape(-1, 1)
 
             cells = [x for x in mesh_sdf.cells if x.type == 'triangle']
             cells = cells[0].data.astype(int)
@@ -228,8 +127,7 @@ def get_sdf_completion_data_loader(n_objects, data_folder, batch_size, eval_frac
 
 def get_sdf_3d_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                            reversed_edge_already_included=False, self_edge_already_included=False,
-                           edge_method='edge', edge_params=None, no_global=False, with_vertices=False,
-                           remove_repeated_edges=True):
+                           edge_method='edge', edge_params=None, no_global=False, remove_repeated_edges=True):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -248,11 +146,6 @@ def get_sdf_3d_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_
             y = x.copy()[:, 3]
             x[:, 3] = y <= 0
             x = x.astype(np.float32)
-            if with_vertices:
-                surface_points_feats = np.ones((len(surface_points), 1))
-                sdf_points_feats = np.zeros((len(surface_points), 1))
-                new_feat = np.concatenate((surface_points_feats, sdf_points_feats))
-                x = np.concatenate((x, new_feat), axis=1)
 
             y = y / np.sqrt(12)
             y = y.reshape(-1, 1)

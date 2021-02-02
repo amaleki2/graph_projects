@@ -32,8 +32,8 @@ save_name   = "gat_unet"
 train_sdf(model, train_data, train_data, loss_funcs, n_epochs=n_epochs, use_cpu=True, save_name=save_name, **losses_params)
 
 # choose model: deep mind graph model
-n_edge_feat_in, n_edge_feat_out = 4, 1
-n_node_feat_in, n_node_feat_out = 4, 1
+n_edge_feat_in, n_edge_feat_out = 3, 1
+n_node_feat_in, n_node_feat_out = 3, 1
 n_global_feat_in, n_global_feat_out = 3, 1
 mlp_latent_size = 64
 num_processing_steps = 5
