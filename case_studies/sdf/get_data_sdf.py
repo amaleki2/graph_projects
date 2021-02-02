@@ -95,7 +95,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
                 if x[:, 3].sum() != len(vertices):
                     print("kir khar")
                 assert x[:, 3].sum() == len(vertices)
-            y = y / np.sqrt(8)
+            #y = y / np.sqrt(8)
             y = y.reshape(-1, 1)
 
             cells = [x for x in mesh_sdf.cells if x.type == 'triangle']
