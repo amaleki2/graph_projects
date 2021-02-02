@@ -5,8 +5,8 @@ from src import borderless_loss, clamped_loss, graph_loss, level_set_loss  # los
 
 # get data
 n_objects = 20
-# data_folder = "../../mesh_gen/mesh_sdf/mesh_correct_sdf2/"
-data_folder = "../../mesh_gen/garbage/test_simple_geom/"
+data_folder = "../../mesh_gen/mesh_sdf/mesh_from_numpy_spline1/"
+# data_folder = "../../mesh_gen/garbage/test_simple_geom/"
 batch_size = 2
 edge_method = 'proximity'  # 'edge'
 edge_params = {'radius': 0.25}
