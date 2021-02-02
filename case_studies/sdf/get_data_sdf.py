@@ -75,13 +75,14 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
             mesh_file = data_folder + "sdf%d.vtk" % i
             mesh_sdf = meshio.read(mesh_file)
             x = mesh_sdf.points.copy()
-            y = mesh_sdf.points.copy()[:, 2]
+            y = mesh_sdf.points.copy()[:, 2:]
             if completion_data:
                 unit_box = np.logical_or(np.abs(x[:, 0]) > 1, np.abs(x[:, 1]) > 1)
                 x[unit_box, 2] = 0
             else:
-                x[:, 2] = y < 0
+                x[:, 2] = x[:, 2] < 0
             x = x.astype(float)
+            y = y.astype(float)
             if with_vertices:
                 x = np.hstack((x, np.zeros((len(x), 1))))
                 vertices_file = mesh_file.replace('vtk', 'npy')
@@ -96,7 +97,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
                     print("kir khar")
                 assert x[:, 3].sum() == len(vertices)
             #y = y / np.sqrt(8)
-            y = y.reshape(-1, 1)
+            #y = y.reshape(-1, 1)
 
             cells = [x for x in mesh_sdf.cells if x.type == 'triangle']
             cells = cells[0].data.astype(int)
