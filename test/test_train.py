@@ -11,7 +11,7 @@ batch_size = 2
 edge_method = 'proximity'  # 'edge'
 edge_params = {'radius': 0.25}
 train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.1,
-                                            edge_method=edge_method, edge_params=edge_params, with_vertices=False)
+                                            edge_method=edge_method, edge_params=edge_params, completion_data=True)
 
 
 # choose model: GAT Graph UNet
