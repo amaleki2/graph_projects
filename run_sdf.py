@@ -7,8 +7,7 @@ n_objects   = args.n_object
 data_folder = args.data_folder
 edge_method = args.edge_method
 edge_params = {'radius': args.prox_radius}
-no_global = not args.global_features_on  # epd specific
-with_object_vertices = args.with_object_vertices
+no_global = not args.global_features_on  # epd specific\
 
 # choose model
 network_name     = args.network_name
@@ -57,7 +56,7 @@ else:
 # load data
 train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                             edge_method=edge_method, edge_params=edge_params,
-                                            no_global=no_global, with_vertices=with_object_vertices)
+                                            no_global=no_global)
 # train
 train_sdf(model, train_data, test_data, loss_funcs, n_epochs=n_epochs, print_every=print_every,
           save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma)

@@ -6,16 +6,15 @@ from src import borderless_loss, clamped_loss, graph_loss, level_set_loss  # los
 # get data
 n_objects = 20
 data_folder = "../../mesh_gen/mesh_sdf/mesh_from_numpy_spline1/"
-# data_folder = "../../mesh_gen/garbage/test_simple_geom/"
 batch_size = 2
 edge_method = 'proximity'  # 'edge'
 edge_params = {'radius': 0.25}
 train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.1,
-                                            edge_method=edge_method, edge_params=edge_params, with_vertices=False)
+                                            edge_method=edge_method, edge_params=edge_params)
 
 
 # choose model: GAT Graph UNet
-in_channels, hidden_channels, out_channels = 4, [32, 64, 128, 64, 32], 1
+in_channels, hidden_channels, out_channels = 3, [32, 64, 128, 64, 32], 1
 model = GATUNet(in_channels, hidden_channels, out_channels)
 
 # choose loss functions; see src/loss.py for details of parameters
@@ -29,11 +28,12 @@ n_epochs     = 2
 save_name   = "gat_unet"
 
 # for the sake of testing, same data used for train and test.
-train_sdf(model, train_data, train_data, loss_funcs, n_epochs=n_epochs, use_cpu=True, save_name=save_name, **losses_params)
+train_sdf(model, train_data, train_data, loss_funcs, n_epochs=n_epochs, use_cpu=True,
+          save_name=save_name, **losses_params)
 
 # choose model: deep mind graph model
-n_edge_feat_in, n_edge_feat_out = 4, 1
-n_node_feat_in, n_node_feat_out = 4, 1
+n_edge_feat_in, n_edge_feat_out = 3, 1
+n_node_feat_in, n_node_feat_out = 3, 1
 n_global_feat_in, n_global_feat_out = 3, 1
 mlp_latent_size = 64
 num_processing_steps = 5
