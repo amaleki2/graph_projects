@@ -3,6 +3,7 @@ import torch
 import torch.nn
 from torch.nn import Sequential, ReLU, Linear, LayerNorm
 from torch_scatter import scatter_mean, scatter_sum
+from torch_geometric.nn import fps, knn_interpolate
 
 
 #+++++++++++++++++++++++++#
@@ -93,6 +94,66 @@ def cast_nodes_to_globals(node_attr, batch=None, num_globals=None):
 def cast_edges_to_nodes(edge_attr, indices, num_nodes=None):
     edge_attr_aggr = scatter_sum(edge_attr, indices, dim=0, dim_size=num_nodes)
     return edge_attr_aggr
+
+#+++++++++++++++++++++++++#
+##     pooling layer    ###
+#+++++++++++++++++++++++++#
+class GPool(torch.nn.Module):
+    @staticmethod
+    def get_pooled_nodes_idx(node_attr, batch):
+        return fps(node_attr, batch)
+
+    @staticmethod
+    def get_unpooled_nodes_idx(node_attr, node_pooled_idx):
+        n_nodes = node_attr.shape[0]
+        node_pooled_idx_list = node_pooled_idx.detach().tolist()
+        node_unpooled_idx_list = list(set(range(n_nodes)) - set(node_pooled_idx_list))
+        node_unpooled_idx = torch.tensor(node_unpooled_idx_list, dtype=torch.long, device = node_pooled_idx.device)
+        return node_unpooled_idx
+
+    @staticmethod
+    def get_pooled_edge_idx(edge_index, node_pool_idx):
+        # equivalent of np.isin
+        # see https://github.com/pytorch/pytorch/issues/3025
+        nodes_pooled = (edge_index[..., None] == node_pool_idx).any(-1)
+        edge_pool_idx = torch.all(nodes_pooled, dim=0)
+        return edge_pool_idx
+
+    @staticmethod
+    def get_edge_index_after_pooling(edge_index, pooled_nodes_idx, pooled_edge_idx):
+        pooled_nodes_idx_list = pooled_nodes_idx.detach().tolist()
+        edge_index_pooled_list = edge_index[:, pooled_edge_idx].detach().tolist()
+        mapping = dict(zip(pooled_nodes_idx_list, range(len(pooled_nodes_idx_list))))
+        e1 = list(map(mapping.get, edge_index_pooled_list[0]))
+        e2 = list(map(mapping.get, edge_index_pooled_list[1]))
+        edge_index_new = torch.tensor([e1, e2], dtype=torch.long, device=edge_index.device)
+        return edge_index_new
+
+    def forward(self, edge_attr, node_attr, global_attr, edge_index, batch):
+        pooled_nodes_idx = self.get_pooled_nodes_idx(node_attr, batch)
+        unpooled_nodes_idx = self.get_unpooled_nodes_idx(node_attr, pooled_nodes_idx)
+        pooled_edge_idx = self.get_pooled_edge_idx(edge_index, pooled_nodes_idx)
+        unpooled_edge_idx = self.get_pooled_edge_idx(edge_index, unpooled_nodes_idx)
+        new_node_attr = node_attr[pooled_nodes_idx, :]
+        new_edge_attr = edge_attr[pooled_edge_idx, :]
+        new_edge_index = self.get_edge_index_after_pooling(edge_index, pooled_nodes_idx, pooled_edge_idx)
+        new_batch = batch[pooled_nodes_idx]
+        unpooling_cache_idx = (pooled_nodes_idx, pooled_edge_idx, unpooled_nodes_idx, unpooled_edge_idx)
+        prepooling_cache = (edge_attr, node_attr, edge_index, batch)
+        return new_edge_attr, new_node_attr, global_attr, new_edge_index, new_batch, unpooling_cache_idx, prepooling_cache
+
+
+class GUnPooling(torch.nn.Module):
+    def forward(self, edge_attr, node_attr, global_attr, edge_index, batch, unpooling_cache_idx, prepooling_cache):
+        (pooled_nodes_idx, pooled_edge_idx, unpooled_nodes_idx, unpooled_edge_idx) = unpooling_cache_idx
+        (prepool_edge_attr, prepool_node_attr, prepool_edge_index, prepool_batch) = prepooling_cache
+        pos_x = prepool_node_attr[pooled_nodes_idx]
+        pos_y = prepool_node_attr[unpooled_nodes_idx]
+        batch_x = prepool_batch[pooled_nodes_idx]
+        assert torch.all(batch_x == batch)
+        batch_y = prepool_batch[unpooled_nodes_idx]
+        y = knn_interpolate(node_attr, pos_x, pos_y, batch_x=batch_x, batch_y=batch_y, k=3)
+        return y
 
 #+++++++++++++++++++++++++#
 ## block models: simple ###
@@ -410,6 +471,7 @@ class EncodeProcessDecode(torch.nn.Module):
                 edge_attr, node_attr, global_attr = self.processors[i](edge_attr, node_attr, global_attr, edge_index, batch)
             else:
                 edge_attr, node_attr, global_attr = self.processors(edge_attr, node_attr, global_attr, edge_index, batch)
+
             edge_attr_de, node_attr_de, global_attr_de = self.decoder(edge_attr, node_attr, global_attr, edge_index, batch)
             edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de, global_attr_de, edge_index, batch)
             output_ops.append((edge_attr_op, node_attr_op, global_attr_op))
@@ -418,3 +480,37 @@ class EncodeProcessDecode(torch.nn.Module):
             return output_ops
         else:
             return output_ops[-1]
+
+
+class EncodeProcessDecodePooled(EncodeProcessDecode):
+    def __init__(self,
+                 n_edge_feat_in=1, n_node_feat_in=1, n_global_feat_in=1,
+                 n_edge_feat_out=1, n_node_feat_out=1, n_global_feat_out=1,
+                 encoder=GraphNetworkIndependentBlock, processor=GraphNetworkBlock,
+                 decoder=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
+                 mlp_latent_size=128, num_processing_steps=5,
+                 process_weights_shared=False, normalize=True, full_output=False):
+        super(EncodeProcessDecodePooled, self).__init__(n_edge_feat_in=n_edge_feat_in,
+                                                        n_node_feat_in=n_node_feat_in,
+                                                        n_global_feat_in=n_global_feat_in,
+                                                        n_edge_feat_out=n_edge_feat_out,
+                                                        n_node_feat_out=n_node_feat_out,
+                                                        n_global_feat_out=n_global_feat_out,
+                                                        encoder=encoder,
+                                                        processor=processor,
+                                                        decoder=decoder,
+                                                        output_transformer=output_transformer,
+                                                        mlp_latent_size=mlp_latent_size,
+                                                        num_processing_steps=num_processing_steps,
+                                                        process_weights_shared=process_weights_shared,
+                                                        normalize=normalize,
+                                                        full_output=full_output)
+        # self.pooler = GPool()
+        # self.unpooler = GUnPooling()
+        self.decoder = decoder(mlp_latent_size, 1,
+                               mlp_latent_size, 1,
+                               mlp_latent_size, 1,
+                               latent_sizes=mlp_latent_size,
+                               activate_final=True,
+                               normalize=normalize)
+

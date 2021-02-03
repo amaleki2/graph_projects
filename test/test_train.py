@@ -28,8 +28,8 @@ n_epochs     = 2
 save_name   = "gat_unet"
 
 # for the sake of testing, same data used for train and test.
-train_sdf(model, train_data, train_data, loss_funcs, n_epochs=n_epochs, use_cpu=True,
-          save_name=save_name, **losses_params)
+# train_sdf(model, train_data, train_data, loss_funcs, n_epochs=n_epochs, use_cpu=True,
+#           save_name=save_name, **losses_params)
 
 # choose model: deep mind graph model
 n_edge_feat_in, n_edge_feat_out = 3, 1
@@ -43,8 +43,7 @@ model = EncodeProcessDecode(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out=n_edg
                             mlp_latent_size=mlp_latent_size, num_processing_steps=num_processing_steps,
                             encoder=GraphNetworkIndependentBlock, decoder=GraphNetworkIndependentBlock,
                             processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
-                            full_output=True
-                            )
+                            full_output=True)
 
 # choose loss functions
 save_name = "deep_mind"
