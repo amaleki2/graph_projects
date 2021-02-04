@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
 
-def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None):
+def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None, unit_square=True):
     train_loss_history = np.load("save_dir/loss_train_" + save_name + ".npy")
     test_loss_history = np.load("save_dir/loss_test_" + save_name + ".npy")
     plt.plot(train_loss_history, label="train loss")
@@ -29,18 +29,18 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
             output = model(data)
             pred_vals = output_func(output)
 
-            plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=levels)
+            plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=levels, unit_square=unit_square)
             plt.show()
 
 
-def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None):
+def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None, unit_square=True):
     fig, (ax1, ax2, ax3) = plt.subplots(figsize=(12, 5), nrows=1, ncols=3)
 
     cntr1 = ax1.tricontour(xx, yy, true_vals, levels=levels, linewidths=1, colors='k')
     plt.clabel(cntr1, fmt='%0.2f', colors='k', fontsize=10)
     cntr1 = ax1.tricontourf(xx, yy, true_vals, cmap="RdBu_r", levels=20)
     fig.colorbar(cntr1, ax=ax1)
-    ax1.set(xlim=(-1, 1), ylim=(-1, 1))
+    if unit_square: ax1.set(xlim=(-1, 1), ylim=(-1, 1))
     ax1.set_xticks([]);
     ax1.set_yticks([])
 
@@ -48,7 +48,7 @@ def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None):
     plt.clabel(cntr2, fmt='%0.2f', colors='k', fontsize=10)
     cntr2 = ax2.tricontourf(xx, yy, pred_vals, cmap="RdBu_r", levels=20)
     fig.colorbar(cntr2, ax=ax2)
-    ax2.set(xlim=(-1, 1), ylim=(-1, 1))
+    if unit_square: ax2.set(xlim=(-1, 1), ylim=(-1, 1))
     ax2.set_xticks([]);
     ax2.set_yticks([])
     #     if levels:
@@ -60,7 +60,7 @@ def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None):
     cntr3 = ax3.tricontour(xx, yy, true_vals, levels=new_levels, linewidths=2, colors='k')
     plt.clabel(cntr3, fmt='%0.2f', colors='k', fontsize=10)
     cntr3 = ax3.tricontour(xx, yy, pred_vals, levels=new_levels, linewidths=1, colors='r', linestyles='--')
-    ax3.set(xlim=(-1, 1), ylim=(-1, 1))
+    if unit_square: ax3.set(xlim=(-1, 1), ylim=(-1, 1))
     ax3.set_xticks([]);
     ax3.set_yticks([])
     plt.subplots_adjust(wspace=0.5)
