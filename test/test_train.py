@@ -33,7 +33,7 @@ save_name   = "gat_unet"
 
 # choose model: deep mind graph model
 n_edge_feat_in, n_edge_feat_out = 3, 1
-n_node_feat_in, n_node_feat_out = 3, 1
+n_node_feat_in, n_node_feat_out = 3, 3
 n_global_feat_in, n_global_feat_out = 3, 1
 mlp_latent_size = 64
 num_processing_steps = 5
@@ -43,11 +43,11 @@ model = EncodeProcessDecode(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out=n_edg
                             mlp_latent_size=mlp_latent_size, num_processing_steps=num_processing_steps,
                             encoder=GraphNetworkIndependentBlock, decoder=GraphNetworkIndependentBlock,
                             processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
-                            full_output=True)
+                            full_output=False)
 
 # choose loss functions
 save_name = "deep_mind"
-loss_funcs = [graph_loss, level_set_loss]
+loss_funcs = [graph_loss]
 train_sdf(model, train_data, train_data, loss_funcs, n_epochs=2, use_cpu=True, save_name=save_name)
 
 # visualization

@@ -66,9 +66,18 @@ def graph_loss(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
 
     if isinstance(pred, list):
         loss = [loss_func()(out[1], data.y) for out in pred]
-        loss = aggr_func(loss)
+        return aggr_func(loss)
     else:
-        loss = loss_func()(pred[1], data.y)
+        if pred[1].shape[1] > 1:
+            return graph_loss3(pred, data, loss_func=loss_func, aggr_func=aggr_func, **kwargs)
+        else:
+            return loss_func()(pred[1], data.y)
+
+
+def graph_loss3(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
+    loss1 = loss_func()(pred[1][:, :2], data.x[:, :2])
+    loss2 = loss_func()(pred[1][:, 2:], data.y)
+    loss = loss1 + loss2
     return loss
 
 
