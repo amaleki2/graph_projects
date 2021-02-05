@@ -505,15 +505,17 @@ class EncodeProcessDecodePooled(EncodeProcessDecode):
                                                         process_weights_shared=process_weights_shared,
                                                         normalize=normalize,
                                                         full_output=full_output)
-        self.decoder = decoder(mlp_latent_size, 1,
-                               mlp_latent_size, 1,
-                               mlp_latent_size, 1,
+
+        encoding_features = 4
+        self.decoder = decoder(mlp_latent_size, encoding_features,
+                               mlp_latent_size, encoding_features,
+                               mlp_latent_size, encoding_features,
                                latent_sizes=mlp_latent_size,
                                activate_final=True,
                                normalize=False)
 
-        self.output_transformer = output_transformer(1, n_edge_feat_out,
-                                                     1, n_node_feat_out,
-                                                     1, n_global_feat_out,
+        self.output_transformer = output_transformer(encoding_features, n_edge_feat_out,
+                                                     encoding_features, n_node_feat_out,
+                                                     encoding_features, n_global_feat_out,
                                                      latent_sizes=None,
                                                      activate_final=False, normalize=False)
