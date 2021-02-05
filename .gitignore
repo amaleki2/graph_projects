@@ -2,6 +2,7 @@
 *.npy
 *.pyc
 *.pth
+*.sh
 .ipynb_checkpoints
 .idea
 save_dir/
