@@ -19,7 +19,7 @@ def parse_arguments():
 
     # model parameters
     parser.add_argument('--network-name', dest='network_name', type=str, required=True,
-                        choices=['gat', 'gcn', 'epd'], help='network name, options: `gat`, `gcn`, `epd`')
+                        help='network name, options: `gat`, `gcn`, `epd` and `epd-pool`')
     parser.add_argument('--last-layer-skip', dest='last_layer_skip', type=int, default=1, choices=[0, 1],
                         help='whether last layer should get a skip connection from the input or not')
     parser.add_argument('--n-hidden', dest='n_hidden', nargs='+', type=int, default=64,
