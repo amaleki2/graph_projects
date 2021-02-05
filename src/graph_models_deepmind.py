@@ -487,33 +487,62 @@ class EncodeProcessDecodePooled(EncodeProcessDecode):
                  n_edge_feat_in=1, n_node_feat_in=1, n_global_feat_in=1,
                  n_edge_feat_out=1, n_node_feat_out=1, n_global_feat_out=1,
                  encoder=GraphNetworkIndependentBlock, processor=GraphNetworkBlock,
-                 decoder=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
+                 decoder=GraphNetworkIndependentBlock, output_transformer=GraphNetworkIndependentBlock,
                  mlp_latent_size=128, num_processing_steps=5,
                  process_weights_shared=False, normalize=True, full_output=False):
-        super(EncodeProcessDecodePooled, self).__init__(n_edge_feat_in=n_edge_feat_in,
-                                                        n_node_feat_in=n_node_feat_in,
-                                                        n_global_feat_in=n_global_feat_in,
-                                                        n_edge_feat_out=n_edge_feat_out,
-                                                        n_node_feat_out=n_node_feat_out,
-                                                        n_global_feat_out=n_global_feat_out,
-                                                        encoder=encoder,
-                                                        processor=processor,
-                                                        decoder=decoder,
-                                                        output_transformer=output_transformer,
-                                                        mlp_latent_size=mlp_latent_size,
-                                                        num_processing_steps=num_processing_steps,
-                                                        process_weights_shared=process_weights_shared,
-                                                        normalize=normalize,
-                                                        full_output=full_output)
-        self.decoder = decoder(mlp_latent_size, 1,
-                               mlp_latent_size, 1,
-                               mlp_latent_size, 1,
+        super(EncodeProcessDecode, self).__init__()
+        assert not (n_edge_feat_in is None or n_node_feat_in is None or n_global_feat_in is None), \
+            "input sizes should be specified"
+        self.num_processing_steps = num_processing_steps
+        self.full_output = full_output
+        self.process_weights_shared = process_weights_shared
+        self.encoder = encoder(n_edge_feat_in, mlp_latent_size,
+                               n_node_feat_in, mlp_latent_size,
+                               n_global_feat_in, mlp_latent_size,
                                latent_sizes=mlp_latent_size,
                                activate_final=True,
-                               normalize=False)
+                               normalize=normalize)
+        if not self.process_weights_shared:
+            self.processors = torch.nn.ModuleList()
+            for _ in range(num_processing_steps):
+                self.processors.append(processor(2 * mlp_latent_size, mlp_latent_size,
+                                                 2 * mlp_latent_size, mlp_latent_size,
+                                                 2 * mlp_latent_size, mlp_latent_size,
+                                                 latent_sizes=mlp_latent_size,
+                                                 activate_final=True,
+                                                 normalize=normalize))
+        else:
+            self.processors = processor(2 * mlp_latent_size, mlp_latent_size,
+                                        2 * mlp_latent_size, mlp_latent_size,
+                                        2 * mlp_latent_size, mlp_latent_size,
+                                        latent_sizes=mlp_latent_size,
+                                        activate_final=True,
+                                        normalize=normalize)
 
-        self.output_transformer = output_transformer(1, n_edge_feat_out,
-                                                     1, n_node_feat_out,
-                                                     1, n_global_feat_out,
-                                                     latent_sizes=None,
-                                                     activate_final=False, normalize=False)
+        self.auto_encoder = Sequential(Linear(mlp_latent_size,      mlp_latent_size // 4), ReLU(),
+                                       Linear(mlp_latent_size // 4, mlp_latent_size // 8), ReLU(),
+                                       Linear(mlp_latent_size // 8, 1),                    ReLU(),
+                                       Linear(1, 1))
+
+    def forward(self, data):
+        edge_attr, edge_index, node_attr, global_attr, batch = data.edge_attr, data.edge_index, data.x, data.u, data.batch
+        edge_attr, node_attr, global_attr = self.encoder(edge_attr, node_attr, global_attr, edge_index, batch)
+        edge_attr0, node_attr0, global_attr0 = edge_attr.clone(), node_attr.clone(), global_attr.clone()
+        output_ops = []
+        for i in range(self.num_processing_steps):
+            edge_attr = torch.cat((edge_attr0, edge_attr), dim=1)
+            node_attr = torch.cat((node_attr0, node_attr), dim=1)
+            global_attr = torch.cat((global_attr0, global_attr), dim=1)
+            if not self.process_weights_shared:
+                edge_attr, node_attr, global_attr = self.processors[i](edge_attr, node_attr, global_attr, edge_index, batch)
+            else:
+                edge_attr, node_attr, global_attr = self.processors(edge_attr, node_attr, global_attr, edge_index, batch)
+            node_final = self.auto_encoder(node_attr)
+            output_ops.append((None, node_final, None))
+
+        if self.full_output:
+            return output_ops
+        else:
+            return output_ops[-1]
+
+
