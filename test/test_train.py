@@ -1,6 +1,6 @@
 import torch.nn as nn
 from case_studies.sdf import train_sdf, get_sdf_data_loader, plot_sdf_results
-from src import GATUNet, GraphNetworkIndependentBlock, GraphNetworkBlock, EncodeProcessDecode  # networks
+from src import GATUNet, GraphNetworkIndependentBlock, GraphNetworkBlock, EncodeProcessDecode, EncodeProcessDecodePooled  # networks
 from src import borderless_loss, clamped_loss, graph_loss, level_set_loss  # losses
 
 # get data
@@ -45,8 +45,22 @@ model = EncodeProcessDecode(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out=n_edg
                             processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
                             full_output=False)
 
+# # choose loss functions
+# save_name = "epd"
+# loss_funcs = [graph_loss]
+# train_sdf(model, train_data, train_data, loss_funcs, n_epochs=2, use_cpu=True, save_name=save_name)
+
+# choose model: deep mind graph model with pooling
+model = EncodeProcessDecodePooled(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out=n_edge_feat_out,
+                                  n_node_feat_in=n_node_feat_in, n_node_feat_out=n_node_feat_out,
+                                  n_global_feat_in=n_global_feat_in, n_global_feat_out=n_global_feat_out,
+                                  mlp_latent_size=mlp_latent_size, num_processing_steps=num_processing_steps,
+                                  encoder=GraphNetworkIndependentBlock, decoder=GraphNetworkIndependentBlock,
+                                  processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
+                                  full_output=False)
+
 # choose loss functions
-save_name = "deep_mind"
+save_name = "epd_pool"
 loss_funcs = [graph_loss]
 train_sdf(model, train_data, train_data, loss_funcs, n_epochs=2, use_cpu=True, save_name=save_name)
 

@@ -505,12 +505,15 @@ class EncodeProcessDecodePooled(EncodeProcessDecode):
                                                         process_weights_shared=process_weights_shared,
                                                         normalize=normalize,
                                                         full_output=full_output)
-        # self.pooler = GPool()
-        # self.unpooler = GUnPooling()
         self.decoder = decoder(mlp_latent_size, 1,
                                mlp_latent_size, 1,
                                mlp_latent_size, 1,
                                latent_sizes=mlp_latent_size,
                                activate_final=True,
-                               normalize=normalize)
+                               normalize=False)
 
+        self.output_transformer = output_transformer(1, n_edge_feat_out,
+                                                     1, n_node_feat_out,
+                                                     1, n_global_feat_out,
+                                                     latent_sizes=None,
+                                                     activate_final=False, normalize=False)
