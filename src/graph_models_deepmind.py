@@ -571,7 +571,7 @@ class EncodeProcessDecodePooled(torch.nn.Module):
         self.decoder = decoder(mlp_latent_size, encoding_features,
                                mlp_latent_size, encoding_features,
                                mlp_latent_size, encoding_features,
-                               latent_sizes=mlp_latent_size,
+                               latent_sizes=mlp_latent_size, 
                                activate_final=True,
                                normalize=False)
 
