@@ -574,8 +574,9 @@ class EncodeProcessDecodePooled(torch.nn.Module):
                                latent_sizes=mlp_latent_size, 
                                activate_final=True,
                                normalize=False)
-
-        self.pooler = EncodePooling([1000])
+        self.do_pooler = False
+        if self.do_pooler:
+            self.pooler = EncodePooling([1000])
 
         self.output_transformer = output_transformer(encoding_features, n_edge_feat_out,
                                                      encoding_features, n_node_feat_out,
@@ -598,12 +599,15 @@ class EncodeProcessDecodePooled(torch.nn.Module):
                 edge_attr, node_attr, global_attr = self.processors(edge_attr, node_attr, global_attr, edge_index, batch)
 
             edge_attr_de, node_attr_de, global_attr_de = self.decoder(edge_attr, node_attr, global_attr, edge_index, batch)
-            do_pooler = False
-            if do_pooler:
-                edge_attr_ae, node_attr_ae, global_attr_ae = self.pooler(edge_attr_de, node_attr_de, global_attr_de, edge_index, batch)
+
+            if self.do_pooler:
+                edge_attr_ae, node_attr_ae, global_attr_ae = self.pooler(edge_attr_de, node_attr_de, global_attr_de,
+                                                                         edge_index, batch)
+                edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_ae, node_attr_ae,
+                                                                                     global_attr_ae, edge_index, batch)
             else:
-                edge_attr_ae, node_attr_ae, global_attr_ae = edge_attr_de.copy(), node_attr_de.copy(), global_attr_de.copy()
-            edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_ae, node_attr_ae, global_attr_ae, edge_index, batch)
+                edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de,
+                                                                                     global_attr_de, edge_index, batch)
             output_ops.append((edge_attr_op, node_attr_op, global_attr_op))
 
         if self.full_output:
