@@ -439,7 +439,7 @@ class EncodePooling(torch.nn.Module):
         non_padded_index = []
         _, counts = torch.unique(batch, return_counts=True)
         for i, count in enumerate(counts):
-            non_padded_index += list(range(self.max_encoding_size * i, self.max_encoding_size * (i+1) + count))
+            non_padded_index += list(range(self.max_encoding_size * i, self.max_encoding_size * i + count))
         nodes_batch_joint = nodes.view(-1, 1)
         nodes_batch_joint = nodes_batch_joint[non_padded_index]
         return nodes_batch_joint
@@ -448,7 +448,7 @@ class EncodePooling(torch.nn.Module):
         nodes_fc = self.to_fcn(node_attr_de, batch)
         nodes_encode = self.encoding_mlp(nodes_fc)
         nodes_decode = self.decoding_mlp(nodes_encode)
-        nodes_gr = self.from_fcn(nodes_encode, batch)
+        nodes_gr = self.from_fcn(nodes_decode, batch)
         return nodes_encode, nodes_decode, nodes_gr
 
 
@@ -574,7 +574,7 @@ class EncodeProcessDecodePooled(torch.nn.Module):
                                latent_sizes=mlp_latent_size, 
                                activate_final=True,
                                normalize=False)
-        self.do_pooler = False
+        self.do_pooler = True
         if self.do_pooler:
             self.pooler = EncodePooling([1000])
 
@@ -601,13 +601,10 @@ class EncodeProcessDecodePooled(torch.nn.Module):
             edge_attr_de, node_attr_de, global_attr_de = self.decoder(edge_attr, node_attr, global_attr, edge_index, batch)
 
             if self.do_pooler:
-                edge_attr_ae, node_attr_ae, global_attr_ae = self.pooler(edge_attr_de, node_attr_de, global_attr_de,
-                                                                         edge_index, batch)
-                edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_ae, node_attr_ae,
-                                                                                     global_attr_ae, edge_index, batch)
-            else:
-                edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de,
-                                                                                     global_attr_de, edge_index, batch)
+                nodes_pooler_enode, nodes_pooler_decode, node_attr_de = self.pooler(edge_attr_de, node_attr_de,
+                                                                                    global_attr_de, edge_index, batch)
+            edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de,
+                                                                                 global_attr_de, edge_index, batch)
             output_ops.append((edge_attr_op, node_attr_op, global_attr_op))
 
         if self.full_output:
