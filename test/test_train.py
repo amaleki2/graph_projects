@@ -33,7 +33,7 @@ save_name   = "gat_unet"
 
 # choose model: deep mind graph model
 n_edge_feat_in, n_edge_feat_out = 3, 1
-n_node_feat_in, n_node_feat_out = 3, 3
+n_node_feat_in, n_node_feat_out = 3, 1
 n_global_feat_in, n_global_feat_out = 3, 1
 mlp_latent_size = 64
 num_processing_steps = 5
