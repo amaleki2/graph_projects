@@ -6,7 +6,7 @@ from src import borderless_loss, clamped_loss, graph_loss, level_set_loss  # los
 # get data
 n_objects = 20
 data_folder = "../../mesh_gen/mesh_sdf/mesh_from_numpy_spline1/"
-batch_size = 2
+batch_size = 3
 edge_method = 'proximity'  # 'edge'
 edge_params = {'radius': 0.25}
 train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.1,

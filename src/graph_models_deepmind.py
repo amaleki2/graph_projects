@@ -5,7 +5,6 @@ from torch.nn import Sequential, ReLU, Linear, LayerNorm
 from torch_scatter import scatter_mean, scatter_sum
 from torch_geometric.nn import fps, knn_interpolate
 
-
 #+++++++++++++++++++++++++#
 #### helper functions #####
 #+++++++++++++++++++++++++#
@@ -430,7 +429,8 @@ class EncodePooling(torch.nn.Module):
     def to_fcn(self, nodes, batch):
         max_size = self.max_encoding_size
         _, counts = torch.unique(batch, return_counts=True)
-        nodes_batch_splits = torch.split(nodes, counts[:-1])
+        split_sizes = counts.detach().tolist()
+        nodes_batch_splits = torch.split(nodes, split_sizes)
         nodes_batch_splits = [F.pad(x, (0, 0, 0, max_size - x.shape[0]), "constant", 0) for x in nodes_batch_splits]
         nodes_batch_splits = torch.cat(nodes_batch_splits, dim=1).T
         return nodes_batch_splits
