@@ -26,10 +26,11 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_ever
 
     for epoch in range(i_start, n_epochs + 1):
         epoch_loss = []
+        model.with_pooling = epoch > 100
         for data in train_data:
             optimizer.zero_grad()
             losses = train_forward_step(model, data, loss_funcs, device, **losses_params)
-            epoch_loss.append([ll.item() for ll in losses])
+            epoch_loss.append([ll.item() if hasattr(ll, 'item') else ll for ll in losses])
             train_loss = sum(losses)
             train_loss.backward()
             optimizer.step()
@@ -40,7 +41,7 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_ever
             test_epoch_loss = []
             for data in test_data:
                 losses = train_forward_step(model, data, loss_funcs, device, training=False)
-                test_epoch_loss.append([ll.item() for ll in losses])
+                test_epoch_loss.append([ll.item() if hasattr(ll, 'item') else ll for ll in losses])
             test_epoch_loss_mean = np.mean(test_epoch_loss, axis=0)
             test_losses_list.append(test_epoch_loss_mean)
             print_and_save(model, epoch, train_losses_list, test_losses_list, optimizer, save_name)

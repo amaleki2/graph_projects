@@ -56,8 +56,9 @@ elif network_name == "epd-pool":
                                       n_node_feat_in=n_node_in, n_node_feat_out=n_node_out,
                                       n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
                                       mlp_latent_size=n_hidden[0], num_processing_steps=n_process,
-                                      process_weights_shared=weights_shared, full_output=full_output)
-    loss_funcs = [graph_loss]
+                                      process_weights_shared=weights_shared, with_pooling=True)
+    pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
+    loss_funcs = [graph_loss, pooling_loss_func]
 else:
     raise(ValueError("model name %s is not recognized" %network_name))
 

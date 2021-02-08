@@ -59,7 +59,8 @@ model = EncodeProcessDecodePooled(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out
                                   processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock)
 # choose loss functions
 save_name = "epd_pool"
-loss_funcs = [graph_loss, lambda x, y: x[3]]
+pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
+loss_funcs = [graph_loss, pooling_loss_func]
 train_sdf(model, train_data, train_data, loss_funcs, n_epochs=2, use_cpu=False, save_name=save_name)
 
 # visualization
