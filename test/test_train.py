@@ -4,7 +4,7 @@ from src import GATUNet, GraphNetworkIndependentBlock, GraphNetworkBlock, Encode
 from src import borderless_loss, clamped_loss, graph_loss, level_set_loss  # losses
 
 # get data
-n_objects = 20
+n_objects = 3
 data_folder = "../../mesh_gen/mesh_sdf/mesh_from_numpy_spline1/"
 batch_size = 3
 edge_method = 'proximity'  # 'edge'
@@ -56,13 +56,11 @@ model = EncodeProcessDecodePooled(n_edge_feat_in=n_edge_feat_in, n_edge_feat_out
                                   n_global_feat_in=n_global_feat_in, n_global_feat_out=n_global_feat_out,
                                   mlp_latent_size=mlp_latent_size, num_processing_steps=num_processing_steps,
                                   encoder=GraphNetworkIndependentBlock, decoder=GraphNetworkIndependentBlock,
-                                  processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
-                                  full_output=False)
-
+                                  processor=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock)
 # choose loss functions
 save_name = "epd_pool"
-loss_funcs = [graph_loss]
-train_sdf(model, train_data, train_data, loss_funcs, n_epochs=2, use_cpu=True, save_name=save_name)
+loss_funcs = [graph_loss, lambda x, y: x[3]]
+train_sdf(model, train_data, train_data, loss_funcs, n_epochs=2, use_cpu=False, save_name=save_name)
 
 # visualization
 data_loader, _ = get_sdf_data_loader(10, data_folder, 1, eval_frac=0, edge_method=edge_method, edge_params=edge_params)
