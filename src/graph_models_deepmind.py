@@ -408,22 +408,20 @@ class GraphNetworkIndependentBlock(torch.nn.Module):
 
 
 class EncodePooling(torch.nn.Module):
-    def __init__(self, layers, max_encoding_size=3000, activate_final=False):
+    def __init__(self, encode_layers=None, decode_layers=None):
         super(EncodePooling, self).__init__()
-        self.max_encoding_size = max_encoding_size
-        encoding_mlp = [Linear(max_encoding_size * 3, layers[0]), ReLU()]
-        for i in range(len(layers)-1):
-            encoding_mlp.append(Linear(layers[i], layers[i+1]))
-            encoding_mlp.append(ReLU())
+        self.max_encoding_size = decode_layers[-1]
+
+        encoding_mlp = []
+        for i in range(len(encode_layers)-1):
+            encoding_mlp.append(Linear(encode_layers[i], encode_layers[i+1]))
+            if i < len(encode_layers)-2: encoding_mlp.append(ReLU())
         self.encoding_mlp = Sequential(*encoding_mlp)
 
         decoding_mlp = []
-        for i in range(len(layers)-1, 0, -1):
-            decoding_mlp.append(Linear(layers[i], layers[i-1]))
-            decoding_mlp.append(ReLU())
-        decoding_mlp.append(Linear(layers[0], max_encoding_size))
-        if activate_final:
-            encoding_mlp.append(ReLU())
+        for i in range(len(decode_layers) - 1):
+            decoding_mlp.append(Linear(decode_layers[i], decode_layers[i + 1]))
+            if i < len(decode_layers)-1: decoding_mlp.append(ReLU())
         self.decoding_mlp = Sequential(*decoding_mlp)
 
     def to_fcn(self, nodes, batch):

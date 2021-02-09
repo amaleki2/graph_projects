@@ -125,22 +125,27 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
     return train_data, test_data
 
 
-def get_pooling_data_loader(sdf_data_loader, sdf_model, batch_size, sdf_model_save_name=""):
-    # random splitting into train and test
+def get_pooling_data_loader(sdf_data_loader, sdf_model, batch_size, sdf_model_save_name="", cache=None):
     pooling_data_list = []
+    # if cache is not None and os.path.isfile(cache):
+    #     pooling_data = np.load(cache)
+    #     for data in pooling_data:
+    #         pooling_data = Data(x=data.type(torch.float32))
+    #         pooling_data_list.append(pooling_data)
+    #     pooling_data = Data(x=torch.from_numpy(pooling_data).type(torch.float32))
+    #     pooling_data_list.append(pooling_data)
 
     device = 'cpu'
     model = sdf_model.to(device)
     model.load_state_dict(torch.load("save_dir/model_" + sdf_model_save_name + ".pth", map_location=device))
     model.eval()
     with torch.no_grad():
-        for i, data in enumerate(sdf_data_loader):
+        for i, data in enumerate(tqdm.tqdm(sdf_data_loader)):
             data = data.to(device=device)
             output = model(data)
             pooling_data = data.x[:, :2]
             pooling_data = torch.cat([pooling_data, output[1]], dim=1)
             pooling_data = Data(x=pooling_data.type(torch.float32))
             pooling_data_list.append(pooling_data)
-
-    dataloader = DataLoader(pooling_data_list, batch_size=batch_size)
-    return dataloader
+    dl = DataLoader(pooling_data_list, batch_size=batch_size)
+    return dl

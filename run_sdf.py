@@ -58,8 +58,8 @@ elif network_name == "epd-pool":
                                       n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
                                       mlp_latent_size=n_hidden[0], num_processing_steps=n_process,
                                       process_weights_shared=weights_shared, with_pooling=False)
-    pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
-    loss_funcs = [graph_loss, pooling_loss_func]
+    #pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
+    loss_funcs = [graph_loss]#, pooling_loss_func]
 else:
     raise(ValueError("model name %s is not recognized" %network_name))
 
@@ -82,11 +82,13 @@ else:
 
     # pooling model
     max_encoding = compute_max_vertices(data_folder, n_objects)
-    pooling_model = EncodePooling([max_encoding, max_encoding // 2], max_encoding_size=max_encoding,
-                                  activate_final=False)
+    encode_layers = [max_encoding*3, max_encoding*2, max_encoding*2, max_encoding]
+    decode_layers = [encode_layers[-1], max_encoding, max_encoding]
+    pooling_model = EncodePooling(encode_layers=encode_layers, decode_layers=decode_layers)
 
     # training pooling model
     pooling_loss_funcs = [pooling_loss]
     pooling_save_name = save_name + "_pooling"
-    train_sdf(pooling_model, train_pooling_data, test_pooling_data, pooling_loss_funcs, n_epochs=2,
-              use_cpu=False, save_name=pooling_save_name)
+    train_sdf(pooling_model, train_pooling_data, test_pooling_data, pooling_loss_funcs, n_epochs=n_epochs,
+              print_every=print_every, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma,
+              save_name=pooling_save_name)
