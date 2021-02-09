@@ -1,4 +1,4 @@
-from case_studies.sdf import train_sdf, get_sdf_data_loader, get_pooling_data_loader
+from case_studies.sdf import train_sdf, get_sdf_data_loader, get_pooling_data_loader, compute_max_vertices
 from src import (GATUNet, GCNUNet, EncodeProcessDecode, EncodeProcessDecodePooled,  EncodePooling,
                  regular_loss, graph_loss, pooling_loss, parse_arguments)
 
@@ -81,7 +81,7 @@ else:
     test_pooling_data = get_pooling_data_loader(test_data, model, batch_size, sdf_model_save_name=save_name)
 
     # pooling model
-    max_encoding = 3000  # replace with function computing max number of vertices
+    max_encoding = compute_max_vertices(data_folder, n_objects)
     pooling_model = EncodePooling([max_encoding, max_encoding // 2], max_encoding_size=max_encoding,
                                   activate_final=False)
 

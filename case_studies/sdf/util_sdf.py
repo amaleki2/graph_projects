@@ -1,8 +1,18 @@
+import os
 import torch
 import meshio
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
+
+
+def compute_max_vertices(folder_name, n_objects):
+    m = 0
+    for i in range(n_objects):
+        mesh = meshio.read(os.path.join(folder_name, "sdf%d.vtk" %i))
+        if mesh.points.shape[0] > m:
+            m = mesh.points.shape[0]
+    return m
 
 
 def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None):
