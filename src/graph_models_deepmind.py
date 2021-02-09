@@ -408,10 +408,10 @@ class GraphNetworkIndependentBlock(torch.nn.Module):
 
 
 class EncodePooling(torch.nn.Module):
-    def __init__(self, layers, max_encoding_size=2000, activate_final=False):
+    def __init__(self, layers, max_encoding_size=3000, activate_final=False):
         super(EncodePooling, self).__init__()
         self.max_encoding_size = max_encoding_size
-        encoding_mlp = [Linear(max_encoding_size * 4, layers[0]), ReLU()]
+        encoding_mlp = [Linear(max_encoding_size * 3, layers[0]), ReLU()]
         for i in range(len(layers)-1):
             encoding_mlp.append(Linear(layers[i], layers[i+1]))
             encoding_mlp.append(ReLU())
@@ -445,13 +445,19 @@ class EncodePooling(torch.nn.Module):
         nodes_batch_joint = nodes_batch_joint[non_padded_index]
         return nodes_batch_joint
 
-    def forward(self, edge_attr_de, node_attr_de, global_attr_de, edge_index, batch):
-        nodes_fc = self.to_fcn(node_attr_de, batch)
+    # def forward(self, edge_attr_de, node_attr_de, global_attr_de, edge_index, batch):
+    #     nodes_fc = self.to_fcn(node_attr_de, batch)
+    #     nodes_encode = self.encoding_mlp(nodes_fc)
+    #     nodes_decode = self.decoding_mlp(nodes_encode)
+    #     nodes_gr = self.from_fcn(nodes_decode, batch)
+    #     return nodes_gr
+
+    def forward(self, data):
+        nodes_fc = self.to_fcn(data.x, data.batch)
         nodes_encode = self.encoding_mlp(nodes_fc)
         nodes_decode = self.decoding_mlp(nodes_encode)
-        nodes_gr = self.from_fcn(nodes_decode, batch)
+        nodes_gr = self.from_fcn(nodes_decode, data.batch)
         return nodes_gr
-
 
 class EncodeProcessDecode(torch.nn.Module):
     def __init__(self,
@@ -535,7 +541,7 @@ class EncodeProcessDecodePooled(torch.nn.Module):
                  n_edge_feat_out=1, n_node_feat_out=1, n_global_feat_out=1,
                  encoder=GraphNetworkIndependentBlock, processor=GraphNetworkBlock,
                  decoder=GraphNetworkIndependentBlock, output_transformer=GraphNetworkIndependentBlock,
-                 mlp_latent_size=128, num_processing_steps=5, with_pooling=True,
+                 mlp_latent_size=128, num_processing_steps=5, with_pooling=False,
                  process_weights_shared=False, normalize=True):
         super(EncodeProcessDecodePooled, self).__init__()
         assert not (n_edge_feat_in is None or n_node_feat_in is None or n_global_feat_in is None), \
@@ -602,7 +608,7 @@ class EncodeProcessDecodePooled(torch.nn.Module):
             edge_attr_de, node_attr_de, global_attr_de = self.decoder(edge_attr, node_attr, global_attr, edge_index, batch)
 
         if self.with_pooling:
-            nodes_pre_pool = torch.cat([x, node_attr_de], dim=1)
+            nodes_pre_pool = torch.cat([x[:, :2], node_attr_de], dim=1)
             node_attr_de_pooled = self.pooler(edge_attr_de, nodes_pre_pool, global_attr_de, edge_index, batch)
             pooling_loss = torch.mean(torch.abs(node_attr_de - node_attr_de_pooled))
             edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de_pooled,
@@ -611,49 +617,4 @@ class EncodeProcessDecodePooled(torch.nn.Module):
         else:
             edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de,
                                                                                  global_attr_de, edge_index, batch)
-            return edge_attr_op, node_attr_op, global_attr_op
-
-# class EncodeProcessDecodePooled(EncodeProcessDecode):
-#     def __init__(self,
-#                  n_edge_feat_in=1, n_node_feat_in=1, n_global_feat_in=1,
-#                  n_edge_feat_out=1, n_node_feat_out=1, n_global_feat_out=1,
-#                  encoder=GraphNetworkIndependentBlock, processor=GraphNetworkBlock,
-#                  decoder=GraphNetworkBlock, output_transformer=GraphNetworkIndependentBlock,
-#                  mlp_latent_size=128, num_processing_steps=5,
-#                  process_weights_shared=False, normalize=True, full_output=False):
-#         super(EncodeProcessDecodePooled, self).__init__(n_edge_feat_in=n_edge_feat_in,
-#                                                         n_node_feat_in=n_node_feat_in,
-#                                                         n_global_feat_in=n_global_feat_in,
-#                                                         n_edge_feat_out=n_edge_feat_out,
-#                                                         n_node_feat_out=n_node_feat_out,
-#                                                         n_global_feat_out=n_global_feat_out,
-#                                                         encoder=encoder,
-#                                                         processor=processor,
-#                                                         decoder=decoder,
-#                                                         output_transformer=output_transformer,
-#                                                         mlp_latent_size=mlp_latent_size,
-#                                                         num_processing_steps=num_processing_steps,
-#                                                         process_weights_shared=process_weights_shared,
-#                                                         normalize=normalize,
-#                                                         full_output=full_output)
-#
-#         encoding_features = 1
-#         self.decoder = decoder(mlp_latent_size, encoding_features,
-#                                mlp_latent_size, encoding_features,
-#                                mlp_latent_size, encoding_features,
-#                                latent_sizes=mlp_latent_size,
-#                                activate_final=True,
-#                                normalize=False)
-#
-#         # self.output_transformer = output_transformer(encoding_features, n_edge_feat_out,
-#         #                                              encoding_features, n_node_feat_out,
-#         #                                              encoding_features, n_global_feat_out,
-#         #                                              latent_sizes=None,
-#         #                                              activate_final=False, normalize=False)
-#         ae = EncodePooling([1000])
-#         ot = output_transformer(encoding_features, n_edge_feat_out,
-#                                 encoding_features, n_node_feat_out,
-#                                 encoding_features, n_global_feat_out,
-#                                 latent_sizes=None,
-#                                 activate_final=False, normalize=False)
-#         self.output_transformer = torch.nn.ModuleList([ae, ot])
+            return edge_attr_op, node_attr_op, global_attr_op#, edge_attr_de, node_attr_de, global_attr_de

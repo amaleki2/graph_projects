@@ -97,6 +97,11 @@ def level_set_loss(pred, data, loss_func=nn.L1Loss, level_sets=[-0.1, -0.05, 0, 
         loss += sum([banded_loss(out[1], data.y, loss_func=loss_func, lb=lb, ub=ub) for out in pred]) / len(pred)
     return loss
 
+
+def pooling_loss(pred, data, loss_func=nn.L1Loss, **kwargs):
+    loss = loss_func()(pred, data.x[:, 2:])
+    return loss
+
 # def eplison_loss(pred, data, eps=0, **kwargs):
 #     eps_loss = torch.relu(torch.abs(pred-data.y) - eps)
 #     eps_loss_reduced = torch.mean(eps_loss)

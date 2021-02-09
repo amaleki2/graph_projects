@@ -26,7 +26,6 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_ever
 
     for epoch in range(i_start, n_epochs + 1):
         epoch_loss = []
-        model.with_pooling = epoch > 100
         for data in train_data:
             optimizer.zero_grad()
             losses = train_forward_step(model, data, loss_funcs, device, **losses_params)

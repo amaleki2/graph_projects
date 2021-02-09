@@ -66,4 +66,6 @@ def parse_arguments():
                         help='learning rate scheduler step size')
     parser.add_argument('--eval-frac', dest='eval_frac', type=float, default=0.1,
                         help='fraction of dataset for evaluation')
+    parser.add_argument('--pooling-model', dest='pooling_model', type=int, default=0, choices=[0, 1],
+                        help='only train pooling model')
     return parser.parse_args()
