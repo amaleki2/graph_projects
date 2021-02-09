@@ -111,7 +111,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
             edge_feats = compute_edge_features(x, edges)
 
             if not no_global:
-                cent = np.mean(x[x[:, 2] == 1, :2], axis=0, keepdims=True)
+                cent = np.mean(x[y[:, 0] < 0, :2], axis=0, keepdims=True)
                 area = np.mean(x[:, 2:], keepdims=True)
                 u = np.concatenate((cent, area), axis=1)
             else:
