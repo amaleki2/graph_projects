@@ -25,6 +25,7 @@ n_global_out     = args.n_global_out     # EncodeProcessDecode specific
 n_process        = args.n_process        # EncodeProcessDecode specific
 full_output      = args.full_output      # EncodeProcessDecode specific
 weights_shared   = args.weights_shared   # EncodeProcessDecode specific
+with_pooling     = args.with_pooling     # EncodeProcessDecodePool specific
 
 # train parameters
 lr_0        = args.lr
@@ -53,13 +54,21 @@ elif network_name == "epd":
                                 process_weights_shared=weights_shared, full_output=full_output)
     loss_funcs = [graph_loss]
 elif network_name == "epd-pool":
+    max_encoding = compute_max_vertices(data_folder, n_objects)
+    encoding_features = 4
+    n_concat_features = 2
+    encode_layers = [max_encoding * (encoding_features + n_concat_features), max_encoding * 4, max_encoding * 4, max_encoding * 4]
+    decode_layers = [encode_layers[-1], max_encoding * 4, max_encoding * 4]
+
     model = EncodeProcessDecodePooled(n_edge_feat_in=n_edge_in, n_edge_feat_out=n_edge_out,
                                       n_node_feat_in=n_node_in, n_node_feat_out=n_node_out,
                                       n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
                                       mlp_latent_size=n_hidden[0], num_processing_steps=n_process,
-                                      process_weights_shared=weights_shared, with_pooling=False)
-    #pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
-    loss_funcs = [graph_loss]#, pooling_loss_func]
+                                      process_weights_shared=weights_shared, encoding_features=encoding_features,
+                                      ae_encode_layers=encode_layers, ae_decode_layers=decode_layers)
+
+    pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
+    loss_funcs = [graph_loss, pooling_loss_func]
 else:
     raise(ValueError("model name %s is not recognized" %network_name))
 
@@ -73,7 +82,6 @@ if not pooling_model:
               save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma)
 else:
     assert network_name == "epd-pool"
-    assert model.with_pooling is False
     # set batch size to 1
     train_data, test_data = get_sdf_data_loader(n_objects, data_folder, 1, eval_frac=0.1,
                                                 edge_method=edge_method, edge_params=edge_params)

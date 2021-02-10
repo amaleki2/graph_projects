@@ -46,6 +46,8 @@ def parse_arguments():
                         help='number of heads in GAT')
     parser.add_argument('--negative-slope', dest='negative_slope', type=float, default=0.2,
                         help='number of output channels')
+    parser.add_argument('--with-pooling', dest='with_pooling', type=int, default=0, choices=[0, 1],
+                        help='with pooling feature of edp-pooling')
 
     # training parameters
     parser.add_argument('--n-epochs', dest='n_epochs', type=int, default=100,
