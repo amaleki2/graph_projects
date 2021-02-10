@@ -595,11 +595,11 @@ class EncodeProcessDecodePooled(torch.nn.Module):
                                                      activate_final=False, normalize=False)
 
     def forward(self, data):
+        cache_list = []
         x = data.x
         edge_attr, edge_index, node_attr, global_attr, batch = data.edge_attr, data.edge_index, data.x, data.u, data.batch
         edge_attr, node_attr, global_attr = self.encoder(edge_attr, node_attr, global_attr, edge_index, batch)
         edge_attr0, node_attr0, global_attr0 = edge_attr.clone(), node_attr.clone(), global_attr.clone()
-        output_ops = []
         for i in range(self.num_processing_steps):
             edge_attr = torch.cat((edge_attr0, edge_attr), dim=1)
             node_attr = torch.cat((node_attr0, node_attr), dim=1)
@@ -609,17 +609,17 @@ class EncodeProcessDecodePooled(torch.nn.Module):
             else:
                 edge_attr, node_attr, global_attr = self.processors(edge_attr, node_attr, global_attr, edge_index, batch)
 
-            edge_attr_de, node_attr_de, global_attr_de = self.decoder(edge_attr, node_attr, global_attr, edge_index, batch)
+        edge_attr_de, node_attr_de, global_attr_de = self.decoder(edge_attr, node_attr, global_attr, edge_index, batch)
+        cache_list.append(node_attr_de.detach().cpu().numpy())
 
         if self.pooler:
             n_concat = self.pooler.n_concat_features
             nodes_pre_pool = torch.cat([x[:, :n_concat], node_attr_de], dim=1)
             node_attr_de_pooled = self.pooler(edge_attr_de, nodes_pre_pool, global_attr_de, edge_index, batch)
-            pooling_loss = torch.mean(torch.abs(node_attr_de - node_attr_de_pooled))
             edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de_pooled,
                                                                                  global_attr_de, edge_index, batch)
-            return edge_attr_op, node_attr_op, global_attr_op, pooling_loss
+            cache_list.append(node_attr_de_pooled.detach().cpu().numpy())
         else:
             edge_attr_op, node_attr_op, global_attr_op = self.output_transformer(edge_attr_de, node_attr_de,
                                                                                  global_attr_de, edge_index, batch)
-            return edge_attr_op, node_attr_op, global_attr_op#, edge_attr_de, node_attr_de, global_attr_de
+        return edge_attr_op, node_attr_op, global_attr_op, cache_list

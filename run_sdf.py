@@ -67,13 +67,14 @@ elif network_name == "epd-pool":
                                       process_weights_shared=weights_shared, encoding_features=encoding_features,
                                       ae_encode_layers=encode_layers, ae_decode_layers=decode_layers)
 
-    pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
-    loss_funcs = [graph_loss, pooling_loss_func]
+    #pooling_loss_func = lambda x, y: 0. if len(x) <= 3 else x[3]
+    loss_funcs = [graph_loss]#, pooling_loss_func]
 else:
     raise(ValueError("model name %s is not recognized" %network_name))
 
 # load data
 if not pooling_model:
+    print("running sdf model %s. " %network_name)
     train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                                 edge_method=edge_method, edge_params=edge_params,
                                                 no_global=no_global)
@@ -81,6 +82,7 @@ if not pooling_model:
     train_sdf(model, train_data, test_data, loss_funcs, n_epochs=n_epochs, print_every=print_every,
               save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma)
 else:
+    assert 2 == 3, 'dont run this'
     assert network_name == "epd-pool"
     # set batch size to 1
     train_data, test_data = get_sdf_data_loader(n_objects, data_folder, 1, eval_frac=0.1,
