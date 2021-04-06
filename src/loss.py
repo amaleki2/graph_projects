@@ -88,6 +88,12 @@ def level_set_loss(pred, data, loss_func=nn.L1Loss, level_sets=[-0.1, -0.05, 0, 
         loss += sum([banded_loss(out[1], data.y, loss_func=loss_func, lb=lb, ub=ub) for out in pred]) / len(pred)
     return loss
 
+
+def chamfer_loss(pred, data, **kwargs):
+    dist_matrix = torch.cdist(pred, data)
+    dist0 = dist_matrix.min(dim=0)[0].max()
+    dist1 = dist_matrix.min(dim=1)[0].max()
+    return dist0 + dist1
 # def eplison_loss(pred, data, eps=0, **kwargs):
 #     eps_loss = torch.relu(torch.abs(pred-data.y) - eps)
 #     eps_loss_reduced = torch.mean(eps_loss)
