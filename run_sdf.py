@@ -1,4 +1,4 @@
-from case_studies.sdf import train_sdf, get_sdf_data_loader
+from case_studies.sdf import train_sdf, get_sdf_data_loader, get_sdf_data_loader_3d
 from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, parse_arguments)
 
 # data parameters
@@ -8,7 +8,6 @@ data_folder = args.data_folder
 edge_method = args.edge_method
 edge_params = {'radius': args.prox_radius}
 no_global = not args.global_features_on  # epd specific
-with_object_vertices = args.with_object_vertices
 
 # choose model
 network_name     = args.network_name
@@ -55,9 +54,15 @@ else:
     raise(ValueError("model name %s is not recognized" %network_name))
 
 # load data
-train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=eval_frac,
-                                            edge_method=edge_method, edge_params=edge_params,
-                                            no_global=no_global, with_vertices=with_object_vertices)
+three_d = args.n_node_in == 4
+if three_d:
+    train_data, test_data = get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=eval_frac,
+                                                   edge_method=edge_method, edge_params=edge_params,
+                                                   no_global=no_global)
+else:
+    train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=eval_frac,
+                                                edge_method=edge_method, edge_params=edge_params,
+                                                no_global=no_global)
 # train
 train_sdf(model, train_data, test_data, loss_funcs, n_epochs=n_epochs, print_every=print_every,
-          save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma)
+          save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma, use_cpu=True)

@@ -71,7 +71,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 
     for idx, graph_data_list in zip([train_idx, test_idx], [train_graph_data_list, test_graph_data_list]):
         for i in tqdm.tqdm(idx):
-            mesh_file = data_folder + "sdf%d.vtk" % i
+            mesh_file = os.path.join(data_folder, "sdf%d.vtk" % i)
             mesh_sdf = meshio.read(mesh_file)
             x = mesh_sdf.points.copy()
             y = mesh_sdf.points.copy()[:, 2:]
@@ -86,13 +86,13 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
             if edge_method == 'edge':
                 edges = cells_to_edges(cells.T)
             elif edge_method == 'proximity':
-                knn_idx = data_folder + "knn%d.npy" % i
+                knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 radius = edge_params['radius']
                 edges = vertices_to_proximity(x, radius, cache_knn=knn_idx)
             elif edge_method == 'both':
                 edges1 = cells_to_edges(cells.T)
                 radius = edge_params['radius']
-                knn_idx = data_folder + "knn%d.npy" % i
+                knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 edges2 = vertices_to_proximity(x, radius, cache_knn=knn_idx)
                 edges = np.concatenate((edges1, edges2), axis=0)
             else:
@@ -125,9 +125,9 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
     return train_data, test_data
 
 
-def get_sdf_3d_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
+def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                            reversed_edge_already_included=False, self_edge_already_included=False,
-                           edge_method='edge', edge_params=None, no_global=False, remove_repeated_edges=True):
+                           edge_method='edge', edge_params=None, no_global=False):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -138,25 +138,27 @@ def get_sdf_3d_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_
 
     for idx, graph_data_list in zip([train_idx, test_idx], [train_graph_data_list, test_graph_data_list]):
         for i in tqdm.tqdm(idx):
-            surface_points = np.load(os.path.join(data_folder, "stl_file_%d_surface_points.npy" % i))
-            surface_points_sdf = np.zeros((len(surface_points), 1))
-            surface_points = np.concatenate((surface_points, surface_points_sdf), axis=1)
-            sdf_points = np.load(os.path.join(data_folder, "stl_file_%d_sdf_points.npy" % i))
-            x = np.concatenate((surface_points, sdf_points))
-            y = x.copy()[:, 3]
-            x[:, 3] = y <= 0
-            x = x.astype(np.float32)
+            mesh_file = os.path.join(data_folder, "sdf%d.vtk" % i)
+            mesh_sdf = meshio.read(mesh_file)
+            x = mesh_sdf.points
+            y = mesh_sdf.point_data['SDF']
+            in_or_out = y < 0
+            x = np.concatenate((x, in_or_out.reshape(-1, 1)), axis=1)
+            x = x.astype(float)
+            y = y.reshape(-1, 1).astype(float)
 
-            y = y / np.sqrt(12)
-            y = y.reshape(-1, 1)
+            cells = [x for x in mesh_sdf.cells if x.type == 'triangle']
+            cells = cells[0].data.astype(int)
+            cells = np.array(cells).T
 
-            if edge_method in ['edge', 'both']:
-                raise(ValueError("3d data does not have connectivity data. use proximity instead."))
+            if edge_method == 'edge':
+                raise(ValueError("edge method is not correct for 3d"))
             elif edge_method == 'proximity':
-                # knn_idx = data_folder + "knn%d.npy" % i
-                knn_idx = os.path.join(data_folder, "stl_file_%d_knn.npy" % i)
+                knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 radius = edge_params['radius']
                 edges = vertices_to_proximity(x, radius, cache_knn=knn_idx)
+            elif edge_method == 'both':
+                raise(ValueError("edge method is not correct for 3d"))
             else:
                 raise(NotImplementedError("method %s is not recognized" % edge_method))
             edges = edges.T
@@ -165,8 +167,7 @@ def get_sdf_3d_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                 edges = add_reversed_edges(edges)
             if not self_edge_already_included:
                 edges = add_self_edges(edges)
-            if remove_repeated_edges:
-                edges = np.unique(edges, axis=1)   # remove repeated edges
+            edges = np.unique(edges, axis=1)   # remove repeated edges
             edge_feats = compute_edge_features(x, edges)
 
             if not no_global:
@@ -180,7 +181,8 @@ def get_sdf_3d_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                               y=torch.from_numpy(y).type(torch.float32),
                               u=torch.from_numpy(u).type(torch.float32),
                               edge_index=torch.from_numpy(edges).type(torch.long),
-                              edge_attr=torch.from_numpy(edge_feats).type(torch.float32))
+                              edge_attr=torch.from_numpy(edge_feats).type(torch.float32),
+                              face=torch.from_numpy(cells).type(torch.long))
             graph_data_list.append(graph_data)
     train_data = DataLoader(train_graph_data_list, batch_size=batch_size)
     test_data = DataLoader(test_graph_data_list, batch_size=batch_size)
