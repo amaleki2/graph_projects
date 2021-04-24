@@ -7,7 +7,9 @@ n_objects   = args.n_object
 data_folder = args.data_folder
 edge_method = args.edge_method
 edge_params = {'radius': args.prox_radius}
-no_global = not args.global_features_on  # epd specific
+no_global = not args.global_features_on  # EncodeProcessDecode specific
+include_reverse_edge = args.include_reverse_edge   # EncodeProcessDecode specific
+include_self_edge = args.include_self_edge   # EncodeProcessDecode specific
 
 # choose model
 network_name     = args.network_name
@@ -58,11 +60,15 @@ three_d = args.n_node_in == 4
 if three_d:
     train_data, test_data = get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                                    edge_method=edge_method, edge_params=edge_params,
-                                                   no_global=no_global)
+                                                   no_global=no_global,
+                                                   reversed_edge_already_included=not include_reverse_edge,
+                                                   self_edge_already_included=not include_self_edge)
 else:
     train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                                 edge_method=edge_method, edge_params=edge_params,
-                                                no_global=no_global)
+                                                no_global=no_global,
+                                                reversed_edge_already_included=not include_reverse_edge,
+                                                self_edge_already_included=not include_self_edge)
 # train
 train_sdf(model, train_data, test_data, loss_funcs, n_epochs=n_epochs, print_every=print_every,
           save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma, use_cpu=True)

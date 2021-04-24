@@ -16,8 +16,10 @@ def parse_arguments():
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
     parser.add_argument('--global-feat-on', dest='global_features_on', type=int, default=1, choices=[0, 1],
                         help='use global features or not')
-    parser.add_argument('--with-obj-vertices', dest='with_object_vertices', type=int, default=0, choices=[0, 1],
-                        help='include object vertices in the node feature')
+    parser.add_argument('--include-reverse-edge', dest='include_reverse_edge', type=int, default=1, choices=[0, 1],
+                        help='include reverse edge to make graph undirectional')
+    parser.add_argument('--include-self-edge', dest='include_self_edge', type=int, default=1, choices=[0, 1],
+                        help='include self edges')
 
     # model parameters
     parser.add_argument('--network-name', dest='network_name', type=str, required=True,
