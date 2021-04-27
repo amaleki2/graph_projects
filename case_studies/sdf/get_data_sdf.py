@@ -2,6 +2,7 @@ import os
 import tqdm
 import torch
 import meshio
+import pyflann
 import numpy as np
 from torch_geometric.data import Data, DataLoader
 from scipy.spatial import distance_matrix
@@ -17,15 +18,20 @@ def cells_to_edges(cells):
     return edge_pairs
 
 
-def vertices_to_proximity(x, radius, cache_knn=None):
+def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx_knn=True):
     if cache_knn is not None and os.path.isfile(cache_knn):
         dist_val, dist_idx = np.load(cache_knn)
         dist_idx = dist_idx.astype(int)
     else:
-        dist = distance_matrix(x[:, :-1], x[:, :-1])
-        #dist += dist.max() * np.tril(np.ones_like(dist))  # to avoid duplication later
-        dist_idx = np.argsort(dist, axis=1)[:, :25]
-        dist_val = np.sort(dist, axis=1)[:, :25]
+        if approx_knn and len(x) > 10000:
+            flann = pyflann.FLANN()
+            dist_idx, dist_val = flann.nn(x[:, :-1], x[:, :-1], max_n_neighbours,
+                                          algorithm="kmeans", branching=32, iterations=7, checks=16)
+            dist_val **= 0.5
+        else:
+            dist = distance_matrix(x[:, :-1], x[:, :-1])
+            dist_idx = np.argsort(dist, axis=1)[:, :max_n_neighbours]
+            dist_val = np.sort(dist, axis=1)[:, :max_n_neighbours]
         if cache_knn is not None:
             np.save(cache_knn, np.array([dist_val, dist_idx]))
     neighbours_idx = np.where(dist_val < radius)

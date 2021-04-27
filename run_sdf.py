@@ -71,4 +71,4 @@ else:
                                                 self_edge_already_included=not include_self_edge)
 # train
 train_sdf(model, train_data, test_data, loss_funcs, n_epochs=n_epochs, print_every=print_every,
-          save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma, use_cpu=True)
+          save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma)
