@@ -56,11 +56,12 @@ else:
     raise(ValueError("model name %s is not recognized" %network_name))
 
 # load data
-three_d = args.n_node_in == 4
+three_d = args.n_node_in >= 4
+with_normals = args.n_node_in > 4
 if three_d:
     train_data, test_data = get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                                    edge_method=edge_method, edge_params=edge_params,
-                                                   no_global=no_global,
+                                                   no_global=no_global, with_normals=with_normals,
                                                    reversed_edge_already_included=not include_reverse_edge,
                                                    self_edge_already_included=not include_self_edge)
 else:

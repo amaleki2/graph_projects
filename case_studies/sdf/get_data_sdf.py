@@ -23,13 +23,14 @@ def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx
         dist_val, dist_idx = np.load(cache_knn)
         dist_idx = dist_idx.astype(int)
     else:
+        n_features_to_consider = min(3, x.shape[0] - 1)  # 2 for 2d, 3 for 3d. ignore normal features.
         if approx_knn and len(x) > 10000:
             flann = pyflann.FLANN()
-            dist_idx, dist_val = flann.nn(x[:, :-1], x[:, :-1], max_n_neighbours,
-                                          algorithm="kmeans", branching=32, iterations=7, checks=16)
+            dist_idx, dist_val = flann.nn(x[:, :n_features_to_consider], x[:, :n_features_to_consider],
+                                          max_n_neighbours, algorithm="kmeans", branching=32, iterations=7, checks=16)
             dist_val **= 0.5
         else:
-            dist = distance_matrix(x[:, :-1], x[:, :-1])
+            dist = distance_matrix(x[:, :n_features_to_consider], x[:, :n_features_to_consider])
             dist_idx = np.argsort(dist, axis=1)[:, :max_n_neighbours]
             dist_val = np.sort(dist, axis=1)[:, :max_n_neighbours]
         if cache_knn is not None:
@@ -133,7 +134,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 
 def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                            reversed_edge_already_included=False, self_edge_already_included=False,
-                           edge_method='edge', edge_params=None, no_global=False):
+                           edge_method='edge', edge_params=None, no_global=False, with_normals=False):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -147,6 +148,9 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
             mesh_file = os.path.join(data_folder, "sdf%d.vtk" % i)
             mesh_sdf = meshio.read(mesh_file)
             x = mesh_sdf.points
+            if with_normals:
+                normals = mesh_sdf.point_data['NORMALS']
+                x = np.concatenate((x, normals), axis=1)
             y = mesh_sdf.point_data['SDF']
             in_or_out = y < 0
             x = np.concatenate((x, in_or_out.reshape(-1, 1)), axis=1)
@@ -164,7 +168,11 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                 radius = edge_params['radius']
                 edges = vertices_to_proximity(x, radius, cache_knn=knn_idx)
             elif edge_method == 'both':
-                raise(ValueError("edge method is not correct for 3d"))
+                edges1 = cells_to_edges(cells.T)
+                radius = edge_params['radius']
+                knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
+                edges2 = vertices_to_proximity(x, radius, cache_knn=knn_idx)
+                edges = np.concatenate((edges1, edges2), axis=0)
             else:
                 raise(NotImplementedError("method %s is not recognized" % edge_method))
             edges = edges.T
