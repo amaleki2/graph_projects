@@ -196,7 +196,8 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                               u=torch.from_numpy(u).type(torch.float32),
                               edge_index=torch.from_numpy(edges).type(torch.long),
                               edge_attr=torch.from_numpy(edge_feats).type(torch.float32),
-                              face=torch.from_numpy(cells).type(torch.long))
+                              #face=torch.from_numpy(cells).type(torch.long)
+                              )
             graph_data_list.append(graph_data)
     train_data = DataLoader(train_graph_data_list, batch_size=batch_size)
     test_data = DataLoader(test_graph_data_list, batch_size=batch_size)
