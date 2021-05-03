@@ -7,6 +7,7 @@ n_objects   = args.n_object
 data_folder = args.data_folder
 edge_method = args.edge_method
 edge_params = {'radius': args.prox_radius, 'min_n_edges': args.min_n_edges}
+no_edge = not args.edge_features_on  # EncodeProcessDecode specific
 no_global = not args.global_features_on  # EncodeProcessDecode specific
 include_reverse_edge = args.include_reverse_edge   # EncodeProcessDecode specific
 include_self_edge = args.include_self_edge   # EncodeProcessDecode specific
@@ -67,7 +68,7 @@ if three_d:
 else:
     train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                                 edge_method=edge_method, edge_params=edge_params,
-                                                no_global=no_global,
+                                                no_global=no_global, no_edge=no_edge,
                                                 reversed_edge_already_included=not include_reverse_edge,
                                                 self_edge_already_included=not include_self_edge)
 # train

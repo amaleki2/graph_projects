@@ -72,7 +72,7 @@ def add_self_edges(edges):
 
 def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                         reversed_edge_already_included=False, self_edge_already_included=False,
-                        edge_method='edge', edge_params=None, no_global=False):
+                        edge_method='edge', edge_params=None, no_global=False, no_edge=False):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -116,7 +116,10 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
             if not self_edge_already_included:
                 edges = add_self_edges(edges)
             edges = np.unique(edges, axis=1)   # remove repeated edges
-            edge_feats = compute_edge_features(x, edges)
+            if no_edge:
+                edge_feats = np.zeros((1, 1))
+            else:
+                edge_feats = compute_edge_features(x, edges)
 
             if not no_global:
                 cent = np.mean(x[x[:, 2] == 1, :2], axis=0, keepdims=True)
