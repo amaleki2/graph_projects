@@ -3,9 +3,10 @@ import meshio
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
+from scipy.interpolate import griddata
 
 
-def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None):
+def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_func=lambda x: x, levels=None, plot_3d=False):
     train_loss_history = np.load("save_dir/loss_train_" + save_name + ".npy")
     test_loss_history = np.load("save_dir/loss_test_" + save_name + ".npy")
     plt.plot(train_loss_history, label="train loss")
@@ -19,17 +20,19 @@ def plot_sdf_results(model, data_loader, save_name="", max_num_data=10, output_f
     model.eval()
     with torch.no_grad():
         for i, data in enumerate(data_loader):
-            if i == max_num_data: break
-            points = data.x.numpy()
-            xx = points[:, 0]
-            yy = points[:, 1]
+            if i == max_num_data:
+                break
+            points = data.x.numpy()[:, :3]
             true_vals = data.y.numpy()[:, 0]
-
             data = data.to(device=device)
             output = model(data)
             pred_vals = output_func(output)
-
-            plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=levels)
+            if plot_3d:
+                plot_scatter_contour_3d(points, true_vals, pred_vals, levels=levels)
+            else:
+                xx = points[:, 0]
+                yy = points[:, 1]
+                plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=levels)
             plt.show()
 
 
@@ -63,6 +66,49 @@ def plot_scatter_contour(xx, yy, true_vals, pred_vals, levels=None):
     ax3.set(xlim=(-1, 1), ylim=(-1, 1))
     ax3.set_xticks([]);
     ax3.set_yticks([])
+    plt.subplots_adjust(wspace=0.5)
+    plt.show()
+
+
+def plot_scatter_contour_3d(points, true_vals, pred_vals, levels=None):
+    ends, n_pts = -0.9, 100
+    n_pnts_c = n_pts * 1j
+    x = np.linspace(-ends, ends, n_pts, endpoint=True)
+    X, Y, Z = np.mgrid[-ends:ends:n_pnts_c, -ends:ends:n_pnts_c, -ends:ends:n_pnts_c]
+    SDFS_true = griddata(points, true_vals, (X, Y, Z))
+    SDFS_pred = griddata(points, pred_vals, (X, Y, Z))
+    fig, axes = plt.subplots(figsize=(20, 20), nrows=2, ncols=6)
+    axes = axes.reshape(4, 3)
+    for i in range(4):
+        ax1, ax2, ax3 = axes[i]
+        z_slice = 20 * i + 5
+        cntr1 = ax1.contour(x, x, SDFS_true[:, :, z_slice], levels=levels, linewidths=1, colors='k')
+        plt.clabel(cntr1, fmt='%0.2f', colors='k', fontsize=10)
+        cntr1 = ax1.contourf(x, x, SDFS_true[:, :, z_slice], cmap="RdBu_r", levels=20)
+        fig.colorbar(cntr1, ax=ax1)
+        ax1.set(xlim=(-1, 1), ylim=(-1, 1))
+        ax1.set_xticks([])
+        ax1.set_yticks([])
+
+        cntr2 = ax2.contour(x, x, SDFS_pred[:, :, z_slice], levels=levels, linewidths=1, colors='k')
+        plt.clabel(cntr2, fmt='%0.2f', colors='k', fontsize=10)
+        cntr2 = ax2.contourf(x, x, SDFS_pred[:, :, z_slice], cmap="RdBu_r", levels=20)
+        fig.colorbar(cntr2, ax=ax2)
+        ax2.set(xlim=(-1, 1), ylim=(-1, 1))
+        ax2.set_xticks([])
+        ax2.set_yticks([])
+        #     if levels:
+        #         new_levels = [(l + r) / 2 for (l, r) in zip(levels[1:], levels[:-1])] + levels
+        #         new_levels = sorted(new_levels)
+        #     else:
+        #         new_levels = None
+        new_levels = levels
+        cntr3 = ax3.contour(x, x, SDFS_true[:, :, z_slice], levels=new_levels, linewidths=2, colors='k')
+        plt.clabel(cntr3, fmt='%0.2f', colors='k', fontsize=10)
+        cntr3 = ax3.contour(x, x, SDFS_pred[:, :, z_slice], levels=new_levels, linewidths=1, colors='r', linestyles='--')
+        ax3.set(xlim=(-1, 1), ylim=(-1, 1))
+        ax3.set_xticks([])
+        ax3.set_yticks([])
     plt.subplots_adjust(wspace=0.5)
     plt.show()
 
