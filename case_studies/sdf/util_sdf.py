@@ -77,8 +77,7 @@ def plot_scatter_contour_3d(points, true_vals, pred_vals, levels=None):
     X, Y, Z = np.mgrid[-ends:ends:n_pnts_c, -ends:ends:n_pnts_c, -ends:ends:n_pnts_c]
     SDFS_true = griddata(points, true_vals, (X, Y, Z))
     SDFS_pred = griddata(points, pred_vals, (X, Y, Z))
-    fig, axes = plt.subplots(figsize=(20, 20), nrows=2, ncols=6)
-    axes = axes.reshape(4, 3)
+    fig, axes = plt.subplots(figsize=(20, 20), nrows=4, ncols=3)
     for i in range(4):
         ax1, ax2, ax3 = axes[i]
         z_slice = 20 * i + 5

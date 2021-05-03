@@ -18,7 +18,7 @@ def cells_to_edges(cells):
     return edge_pairs
 
 
-def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx_knn=False):
+def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx_knn=False, min_n_edges=None):
     if cache_knn is not None and os.path.isfile(cache_knn):
         dist_val, dist_idx = np.load(cache_knn)
         dist_idx = dist_idx.astype(int)
@@ -39,7 +39,12 @@ def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx
     senders = neighbours_idx[0].astype(np.int32)
     receivers = neighbours_idx[1].astype(np.int32)
     edges = [senders, dist_idx[senders, receivers]]
-    edges = np.array(edges).T
+    edges = np.array(edges)
+    if min_n_edges is not None:
+        new_edges = [np.arange(len(x)).repeat(min_n_edges), dist_idx[:, :min_n_edges].reshape(-1)]
+        new_edges = np.array(new_edges).astype(int)
+        edges = np.concatenate((edges, new_edges), axis=1)
+    edges = edges.T
     return edges
 
 
@@ -166,12 +171,14 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
             elif edge_method == 'proximity':
                 knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 radius = edge_params['radius']
-                edges = vertices_to_proximity(x, radius, cache_knn=knn_idx)
+                min_n_edges = edge_params.get('min_n_edges')
+                edges = vertices_to_proximity(x, radius, cache_knn=knn_idx, min_n_edges=min_n_edges)
             elif edge_method == 'both':
                 edges1 = cells_to_edges(cells.T)
                 radius = edge_params['radius']
+                min_n_edges = edge_params.get('min_n_edges')
                 knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
-                edges2 = vertices_to_proximity(x, radius, cache_knn=knn_idx)
+                edges2 = vertices_to_proximity(x, radius, cache_knn=knn_idx, min_n_edges=min_n_edges)
                 edges = np.concatenate((edges1, edges2), axis=0)
             else:
                 raise(NotImplementedError("method %s is not recognized" % edge_method))

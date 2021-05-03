@@ -14,6 +14,8 @@ def parse_arguments():
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
     parser.add_argument('--prox-radius', dest='prox_radius', type=float, default=0.2,
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
+    parser.add_argument('--min-n-edges', dest='min_n_edges', default=None,
+                        help='minimum number of edges for each node, disregard if r > proximity radius.')
     parser.add_argument('--global-feat-on', dest='global_features_on', type=int, default=1, choices=[0, 1],
                         help='use global features or not')
     parser.add_argument('--include-reverse-edge', dest='include_reverse_edge', type=int, default=1, choices=[0, 1],
