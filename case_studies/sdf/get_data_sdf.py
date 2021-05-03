@@ -18,7 +18,7 @@ def cells_to_edges(cells):
     return edge_pairs
 
 
-def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx_knn=True):
+def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx_knn=False):
     if cache_knn is not None and os.path.isfile(cache_knn):
         dist_val, dist_idx = np.load(cache_knn)
         dist_idx = dist_idx.astype(int)
