@@ -24,6 +24,8 @@ def parse_arguments():
                         help='include reverse edge to make graph undirectional')
     parser.add_argument('--include-self-edge', dest='include_self_edge', type=int, default=1, choices=[0, 1],
                         help='include self edges')
+    parser.add_argument('--with-sdf-signs', dest='with_sdf_signs', type=int, default=1, choices=[0, 1],
+                        help='include sdf signs as a feature')
 
     # model parameters
     parser.add_argument('--network-name', dest='network_name', type=str, required=True,

@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from torch_scatter import scatter_mean
+
 
 # all loss functions defined below have a unused kwargs so that a single signature can be used for all of them
 def regular_loss(pred, data, loss_func=nn.L1Loss, **kwargs):
@@ -70,6 +72,11 @@ def graph_loss(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
     else:
         loss = loss_func()(pred[1], data.y)
     return loss
+
+
+def graph_loss_batched(pred, data, loss_func=nn.L1Loss, **kwargs):
+    aggr_func = lambda x: scatter_mean(x, index=data.batch, dim=0)
+    return graph_loss(pred, data, loss_func=loss_func, aggr_func=aggr_func, **kwargs)
 
 
 def banded_loss(xpred, xtrue, loss_func=nn.L1Loss, lb=0., ub=1.):

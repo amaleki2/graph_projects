@@ -1,5 +1,5 @@
 from case_studies.sdf import train_sdf, get_sdf_data_loader, get_sdf_data_loader_3d
-from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, parse_arguments)
+from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, graph_loss_batched, parse_arguments)
 
 # data parameters
 args = parse_arguments()
@@ -11,6 +11,7 @@ no_edge = not args.edge_features_on  # EncodeProcessDecode specific
 no_global = not args.global_features_on  # EncodeProcessDecode specific
 include_reverse_edge = args.include_reverse_edge   # EncodeProcessDecode specific
 include_self_edge = args.include_self_edge   # EncodeProcessDecode specific
+with_sdf_signs = args.with_sdf_signs
 
 # choose model
 network_name     = args.network_name
@@ -62,7 +63,8 @@ with_normals = args.n_node_in > 4
 if three_d:
     train_data, test_data = get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                                    edge_method=edge_method, edge_params=edge_params,
-                                                   no_global=no_global, with_normals=with_normals,
+                                                   no_global=no_global, no_edge=no_edge,
+                                                   with_normals=with_normals, with_sdf_signs=with_sdf_signs,
                                                    reversed_edge_already_included=not include_reverse_edge,
                                                    self_edge_already_included=not include_self_edge)
 else:

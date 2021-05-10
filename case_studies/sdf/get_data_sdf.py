@@ -18,12 +18,12 @@ def cells_to_edges(cells):
     return edge_pairs
 
 
-def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=25, approx_knn=False, min_n_edges=None):
+def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=40, approx_knn=False, min_n_edges=None):
     if cache_knn is not None and os.path.isfile(cache_knn):
         dist_val, dist_idx = np.load(cache_knn)
         dist_idx = dist_idx.astype(int)
     else:
-        n_features_to_consider = min(3, x.shape[0] - 1)  # 2 for 2d, 3 for 3d. ignore normal features.
+        n_features_to_consider = min(3, x.shape[1] - 1)  # 2 for 2d, 3 for 3d. ignore normal features.
         if approx_knn and len(x) > 10000:
             flann = pyflann.FLANN()
             dist_idx, dist_val = flann.nn(x[:, :n_features_to_consider], x[:, :n_features_to_consider],
@@ -117,7 +117,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
                 edges = add_self_edges(edges)
             edges = np.unique(edges, axis=1)   # remove repeated edges
             if no_edge:
-                edge_feats = np.zeros((1, 1))
+                edge_feats = np.zeros((edges.shape[1], 1))
             else:
                 edge_feats = compute_edge_features(x, edges)
 
@@ -142,7 +142,8 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 
 def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                            reversed_edge_already_included=False, self_edge_already_included=False,
-                           edge_method='edge', edge_params=None, no_global=False, with_normals=False):
+                           edge_method='edge', edge_params=None, no_global=False, no_edge=False,
+                           with_normals=False, with_sdf_signs=True):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -160,8 +161,12 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                 normals = mesh_sdf.point_data['NORMALS']
                 x = np.concatenate((x, normals), axis=1)
             y = mesh_sdf.point_data['SDF']
-            in_or_out = y < 0
-            x = np.concatenate((x, in_or_out.reshape(-1, 1)), axis=1)
+            if with_sdf_signs:
+                in_or_out = y < 0
+                x = np.concatenate((x, in_or_out.reshape(-1, 1)), axis=1)
+            else:
+                on_surface = y == 0
+                x = np.concatenate((x, on_surface.reshape(-1, 1)), axis=1)
             x = x.astype(float)
             y = y.reshape(-1, 1).astype(float)
 
@@ -192,7 +197,11 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
             if not self_edge_already_included:
                 edges = add_self_edges(edges)
             edges = np.unique(edges, axis=1)   # remove repeated edges
-            edge_feats = compute_edge_features(x, edges)
+
+            if no_edge:
+                edge_feats = np.zeros((len(edges.T), 1))
+            else:
+                edge_feats = compute_edge_features(x, edges)
 
             if not no_global:
                 cent = np.mean(x[x[:, 3] == 1, :3], axis=0, keepdims=True)
