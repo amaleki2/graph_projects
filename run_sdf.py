@@ -73,3 +73,4 @@ else:
                                                 no_global=no_global, no_edge=no_edge,
                                                 reversed_edge_already_included=not include_reverse_edge,
                                                 self_edge_already_included=not include_self_edge)
+

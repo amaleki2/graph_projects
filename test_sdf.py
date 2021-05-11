@@ -55,3 +55,5 @@ data_loader, _ = get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval
                                                self_edge_already_included=not include_self_edge)
 
 preds, losses = test_sdf(model, data_loader, loss_funcs)
+
+print(sum(losses) / len(losses))
