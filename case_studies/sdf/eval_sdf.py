@@ -1,6 +1,15 @@
 # partially taken from DeepSDF
 
 import torch
+import numpy as np
+
+
+
+
+def create_dataset(surface_points, volume_points):
+    points = np.concatenate((surface_points, volume_points))
+
+
 
 
 def create_mesh(model, latent_vec, filename, N=256, max_batch=32 ** 3, offset=None, scale=None):

@@ -48,6 +48,20 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_ever
         scheduler.step()
 
 
+def test_sdf(model, data_loader, loss_funcs=None, use_cpu=False):
+    device = get_device(use_cpu)
+    model = model.to(device=device)
+    preds = []
+    losses = []
+    for data in data_loader:
+        pred = model(data)
+        preds.append(pred)
+        if loss_funcs is not None:
+            loss = [func(pred, data) for func in loss_funcs]
+            losses.append(loss)
+    return preds, losses
+
+
 def print_and_save(model, epoch, train_losses_list, test_losses_list, optimizer, save_name):
     lr = optimizer.param_groups[0]['lr']
     print("epoch %4s: learning rate=%0.2e" %(str(epoch), lr), end="")
