@@ -48,17 +48,20 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_ever
         scheduler.step()
 
 
-def test_sdf(model, data_loader, loss_funcs=None, use_cpu=False):
+def test_sdf(model, data_loader, save_name, loss_funcs=None, use_cpu=False):
     device = get_device(use_cpu)
     model = model.to(device=device)
     preds = []
     losses = []
-    for data in data_loader:
-        pred = model(data)
-        preds.append(pred)
-        if loss_funcs is not None:
-            loss = [func(pred, data) for func in loss_funcs]
-            losses.append(loss)
+    model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
+    model.eval()
+    with torch.no_grad():
+        for data in data_loader:
+            pred = model(data)
+            preds.append(pred)
+            if loss_funcs is not None:
+                loss = [func(pred, data) for func in loss_funcs]
+                losses.append(loss)
     return preds, losses
 
 
