@@ -1,5 +1,5 @@
 from case_studies.sdf import train_sdf, get_sdf_data_loader, get_sdf_data_loader_3d
-from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, parse_arguments, get_device)
+from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, graph_loss_data_parallel, parse_arguments, get_device)
 from torch_geometric.nn import DataParallel
 
 # data parameters
@@ -59,7 +59,9 @@ elif network_name == "epd":
     if data_parallel:
         device_ids = [int(x) for x in device]
         model = DataParallel(model, device_ids=device_ids)
-    loss_funcs = [graph_loss]
+        loss_funcs = [graph_loss_data_parallel]
+    else:
+        loss_funcs = [graph_loss]
 else:
     raise(ValueError("model name %s is not recognized" %network_name))
 

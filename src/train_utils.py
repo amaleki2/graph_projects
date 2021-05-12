@@ -36,13 +36,19 @@ def get_device(device):
 
 
 def train_forward_step(model, data, loss_funcs, device, training=True, **loss_kwargs):
-    if not isinstance(device, list):
-        data = data.to(device)
     if training:
         model.train()
     else:
         model.eval()
 
+    if isinstance(device, list):  # data parallel
+        # device0 = torch.device('cuda:%d'%device[0])
+        # data = data.to(device0)
+        pass
+    else:
+        data = data.to(device)
     pred = model(data)
     losses = [func(pred, data, **loss_kwargs) for func in loss_funcs]
+
+
     return losses

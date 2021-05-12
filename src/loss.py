@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import torch.nn as nn
 
 from torch_scatter import scatter_mean
@@ -72,6 +73,35 @@ def graph_loss(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
     else:
         loss = loss_func()(pred[1], data.y)
     return loss
+
+def graph_loss_data_parallel(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
+    if aggr_func is None:
+        aggr_func = lambda x: sum(x) / len(x)
+
+    device = pred[0][1].device
+    data_y = torch.cat([d.y for d in data]).to(device)
+    if isinstance(pred, list):
+        loss = [loss_func()(out[1], data_y) for out in pred]
+        loss = aggr_func(loss)
+    else:
+        loss = loss_func()(pred[1], data_y)
+    return loss
+
+
+# def graph_loss_data_parallel_batched(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
+#     if aggr_func is None:
+#         aggr_func = lambda x: sum(x) / len(x)
+#
+#     data_y = torch.cat([d.y for d in data])
+#     if isinstance(pred, list):
+#         raise NotImplementedError
+#     else:
+#         lens = [len(d) for d in data]
+#         splits = np.cumsum(lens)
+#         outs = torch.split(pred[1], splits)
+#         loss = [loss_func()(o, d.y) for (o, d) in zip(outs, data)]
+#         loss = aggr_func(loss)
+#     return loss
 
 
 def graph_loss_batched(pred, data, loss_func=nn.L1Loss, **kwargs):
