@@ -167,15 +167,11 @@ def create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius, min_
                               edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
         graph_data_list.append(graph_data)
     data_loader = DataLoader(graph_data_list, batch_size=1)
-    return data_loader
+    return data_loader, sub_voxels_indices
 
 
-def eval_sdf(model, meshfile, save_name, with_sdf=False, radius=0.3, min_n_neighbours=0, max_n_neighbours=40,
-             voxels_res=128, sub_voxels_res=8, loss_funcs=None, use_cpu=False):
+def eval_sdf(model, data_loader, save_name, voxels_res, sub_voxels_indices, loss_funcs=None, use_cpu=False):
     grid_sdfs = np.zeros(voxels_res ** 3)
-    sub_voxels_indices = get_sub_voxels_indices(voxels_res, sub_voxels_res)
-    data_loader = create_voxel_dataset2(meshfile, voxels_res, sub_voxels_res, radius,
-                                        min_n_neighbours, max_n_neighbours, with_sdf=with_sdf)
     device = get_device(use_cpu)
     model = model.to(device=device)
     preds = []
@@ -191,17 +187,16 @@ def eval_sdf(model, meshfile, save_name, with_sdf=False, radius=0.3, min_n_neigh
                 loss = [func(pred, data) for func in loss_funcs]
                 losses.append(loss)
     for (voxel_id, pred) in zip(sub_voxels_indices, preds):
-        grid_sdfs[voxel_id] = pred[1][:-sub_voxels_indices.shape[1]]
+        grid_sdfs[voxel_id] = pred[1][-sub_voxels_indices.shape[1]:].cpu().numpy().squeeze()
     grid_sdfs = grid_sdfs.reshape((voxels_res, voxels_res, voxels_res))
     return grid_sdfs, losses
-
 
 
 if __name__ == '__main__':
     from src import EncodeProcessDecode
     surface_mesh = r'D:\data\space_claim_round2\tmp\Polygon_19902e4c-3d59-4fb5-a832-7fcf2215a8a9\geomFiles\geom.obj'
-    voxels_res = 128
-    sub_voxels_res = 8
+    voxels_res = 16
+    sub_voxels_res = 4
     radius = 0.3
     min_n_neighbours = 0
     max_n_neighbours = 40
@@ -211,14 +206,15 @@ if __name__ == '__main__':
     n_global_in, n_global_out = 1, 1
     n_hidden = 64
     n_process = 5
-    use_cpu = True
-    with_sdf = True
+    use_cpu = False
+    with_sdf = False
     model = EncodeProcessDecode(n_edge_feat_in=n_edge_in, n_edge_feat_out=n_edge_out,
                                 n_node_feat_in=n_node_in, n_node_feat_out=n_node_out,
                                 n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
                                 mlp_latent_size=n_hidden, num_processing_steps=n_process,
                                 process_weights_shared=True)
 
-    eval_sdf(model, surface_mesh, save_name, radius=radius, with_sdf=with_sdf,
-             min_n_neighbours=min_n_neighbours, max_n_neighbours=max_n_neighbours,
-             voxels_res=voxels_res, sub_voxels_res=sub_voxels_res, loss_funcs=None, use_cpu=use_cpu)
+    data_loader, sub_voxels_indices = create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius,
+                                                            min_n_neighbours, max_n_neighbours, with_sdf=with_sdf)
+
+    eval_sdf(model, data_loader, save_name, voxels_res, sub_voxels_indices, loss_funcs=None, use_cpu=use_cpu)
