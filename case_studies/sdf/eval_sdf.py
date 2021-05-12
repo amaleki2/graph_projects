@@ -1,15 +1,19 @@
-import torch
 import tqdm
+import torch
+import meshio
 import trimesh
 import numpy as np
-from case_studies.sdf.get_data_sdf import vertex_to_proximity_kdtree, compute_edge_features
-from src import get_device
 from trimesh.proximity import ProximityQuery
+
+from src import get_device
+from case_studies.sdf.surface_mesh_utils import generate_surface_mesh
+from case_studies.sdf.get_data_sdf import vertex_to_proximity_kdtree, compute_edge_features
+
 import numpy
 if numpy.__version__ < '1.20':
     print('numpy version 1.20 is required for this module')
-
 from numpy.lib.stride_tricks import sliding_window_view
+
 from torch_geometric.data import Data, DataLoader
 
 
@@ -32,7 +36,14 @@ def read_and_process_mesh(obj_in_file, with_rotate_or_scaling=True, with_scaling
 
     return mesh, (rot_mat, s1, s2)
 
-
+def get_surface_points(mesh, method='mesh', mesh_size=0.05, show=False):
+    if method == 'mesh':
+        generate_surface_mesh(mesh_points=mesh.vertices, mesh_faces=mesh.faces, lc=mesh_size,
+                              saved_name='tmp.vtk', show=show)
+        surface_mesh = meshio.read('tmp.vtk')
+        surface_points = surface_mesh.points
+        surface_faces = surface_mesh.get_cells_type('triangle')
+        return surface_points, surface_faces
 
 # taken from mesh_to_sdf
 def get_raster_points(voxel_resolution):
@@ -132,7 +143,7 @@ def create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius, min_
                           with_sdf=False):
     mesh = trimesh.load(surface_mesh)
     mesh, _ = read_and_process_mesh(mesh, with_rotate_or_scaling=False, with_scaling_to_unit_box=True)
-    surface_points = mesh.vertices
+    surface_points, _ = get_surface_points(mesh, mesh_size=0.1, show=False)
     grid_points = get_raster_points(voxels_res)
     sub_voxels_indices = get_sub_voxels_indices(voxels_res, sub_voxels_res)
     graph_data_list = []
