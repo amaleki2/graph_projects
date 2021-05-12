@@ -15,19 +15,29 @@ def find_best_gpu():
         return gpu_id
 
 
-def get_device(use_cpu):
-    if use_cpu:
+def get_device(device):
+    assert isinstance(device, list)
+
+    if len(device) == 1 and device[0] == 'cpu':
+        print('training using cpu')
         device = torch.device('cpu')
-    else:
+    elif len(device) == 1 and device[0] == 'cuda':
+        print('training using gpu: ', end="")
         device = torch.device('cuda')
         gpu_id = find_best_gpu()
         if gpu_id:
             torch.cuda.set_device(gpu_id)
+    elif isinstance(device, list) and all(isinstance(x, int) for x in device):
+        device = [int(x) for x in device]
+        print('training using multiple gpus: ', device)
+    else:
+        raise ValueError("device is not correct.")
     return device
 
 
 def train_forward_step(model, data, loss_funcs, device, training=True, **loss_kwargs):
-    data = data.to(device)
+    if not isinstance(device, list):
+        data = data.to(device)
     if training:
         model.train()
     else:

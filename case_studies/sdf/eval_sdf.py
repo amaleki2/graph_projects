@@ -14,7 +14,7 @@ if numpy.__version__ < '1.20':
     print('numpy version 1.20 is required for this module')
 from numpy.lib.stride_tricks import sliding_window_view
 
-from torch_geometric.data import Data, DataLoader
+from torch_geometric.data import Data, DataLoader, DataListLoader
 
 
 
@@ -177,7 +177,8 @@ def create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius, min_
                               edge_index=torch.from_numpy(sub_voxel_edges).type(torch.long),
                               edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
         graph_data_list.append(graph_data)
-    data_loader = DataLoader(graph_data_list, batch_size=1)
+    # data_loader = DataLoader(graph_data_list, batch_size=1)
+    data_loader = DataListLoader(graph_data_list, batch_size=1)
     return data_loader, sub_voxels_indices
 
 
@@ -188,10 +189,12 @@ def eval_sdf(model, data_loader, save_name, voxels_res, sub_voxels_indices, loss
     preds = []
     losses = []
     model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
+    from torch_geometric.nn import DataParallel
+    model = DataParallel(model)
     model.eval()
     with torch.no_grad():
         for data in data_loader:
-            data = data.to(device=device)
+            #data = data.to(device=device)
             pred = model(data)
             preds.append(pred)
             if loss_funcs is not None:

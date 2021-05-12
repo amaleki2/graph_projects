@@ -4,7 +4,7 @@ import torch
 import meshio
 import pyflann
 import numpy as np
-from torch_geometric.data import Data, DataLoader
+from torch_geometric.data import Data, DataLoader, DataListLoader
 from scipy.spatial import distance_matrix
 from sklearn.neighbors import KDTree
 
@@ -158,7 +158,7 @@ def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_sta
 def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,
                            reversed_edge_already_included=False, self_edge_already_included=False,
                            edge_method='edge', edge_params=None, no_global=False, no_edge=False,
-                           with_normals=False, with_sdf_signs=True):
+                           with_normals=False, with_sdf_signs=True, data_parallel=False, shuffle=False):
     # random splitting into train and test
     random_idx = np.random.permutation(range(i_start, n_objects))
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
@@ -192,11 +192,13 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
             if edge_method == 'edge':
                 raise(ValueError("edge method is not correct for 3d"))
             elif edge_method == 'proximity':
-                knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 radius = edge_params['radius']
                 min_n_edges = edge_params.get('min_n_edges', 0)
+                max_n_neighbours = edge_params.get('max_n_neighbours', 40)
+                # knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 # edges = vertices_to_proximity(x, radius, cache_knn=knn_idx, min_n_edges=min_n_edges)
-                edges = vertex_to_proximity_kdtree(x, radius, max_n_neighbours=40,
+                # edges = edges.T
+                edges = vertex_to_proximity_kdtree(x, radius, max_n_neighbours=max_n_neighbours,
                                                    min_n_edges=min_n_edges, n_features_to_consider=3)
             elif edge_method == 'both':
                 edges1 = cells_to_edges(cells.T)
@@ -207,7 +209,7 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                 edges = np.concatenate((edges1, edges2), axis=0)
             else:
                 raise(NotImplementedError("method %s is not recognized" % edge_method))
-            edges = edges.T
+            # edges = edges.T
 
             if not reversed_edge_already_included:
                 edges = add_reversed_edges(edges)
@@ -235,6 +237,10 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                               #face=torch.from_numpy(cells).type(torch.long)
                               )
             graph_data_list.append(graph_data)
-    train_data = DataLoader(train_graph_data_list, batch_size=batch_size)
-    test_data = DataLoader(test_graph_data_list, batch_size=batch_size)
+    if data_parallel:
+        train_data = DataListLoader(train_graph_data_list, batch_size=batch_size, shuffle=shuffle)
+        test_data = DataListLoader(test_graph_data_list, batch_size=batch_size, shuffle=shuffle)
+    else:
+        train_data = DataLoader(train_graph_data_list, batch_size=batch_size, shuffle=shuffle)
+        test_data = DataLoader(test_graph_data_list, batch_size=batch_size, shuffle=shuffle)
     return train_data, test_data

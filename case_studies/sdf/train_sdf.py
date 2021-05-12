@@ -4,11 +4,12 @@ import numpy as np
 from src import get_device, train_forward_step
 
 
-def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_every=25, use_cpu=False,
+def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_every=25, device='cpu',
               save_name="", lr_0=0.001, lr_scheduler_step_size=50, lr_scheduler_gamma=0.5,
               resume_training=False, **losses_params):
-    device = get_device(use_cpu)
-    model = model.to(device=device)
+    device = get_device(device)
+    if not isinstance(device, list):
+        model = model.to(device=device)
     if resume_training:
         train_losses_list = np.load("save_dir/loss_train_" + save_name + ".npy").tolist()
         test_losses_list = np.load("save_dir/loss_test_" + save_name + ".npy").tolist()

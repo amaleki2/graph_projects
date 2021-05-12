@@ -1,5 +1,6 @@
 from case_studies.sdf import train_sdf, get_sdf_data_loader, get_sdf_data_loader_3d
-from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, graph_loss_batched, parse_arguments)
+from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, parse_arguments)
+from torch_geometric.nn import DataParallel
 
 # data parameters
 args = parse_arguments()
@@ -38,6 +39,8 @@ lr_gamma    = args.lr_gamma
 print_every = args.print_every
 save_name   = args.save_name
 eval_frac   = args.eval_frac
+device      = args.device
+data_parallel = len(device) > 1
 
 # setup model and appropriate loss function
 if network_name == "gat":
@@ -53,6 +56,9 @@ elif network_name == "epd":
                                 n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
                                 mlp_latent_size=n_hidden[0], num_processing_steps=n_process,
                                 process_weights_shared=weights_shared, full_output=full_output)
+    if data_parallel:
+        device_ids = [int(x) for x in device]
+        model = DataParallel(model, device_ids=device_ids)
     loss_funcs = [graph_loss]
 else:
     raise(ValueError("model name %s is not recognized" %network_name))
@@ -66,7 +72,8 @@ if three_d:
                                                    no_global=no_global, no_edge=no_edge,
                                                    with_normals=with_normals, with_sdf_signs=with_sdf_signs,
                                                    reversed_edge_already_included=not include_reverse_edge,
-                                                   self_edge_already_included=not include_self_edge)
+                                                   self_edge_already_included=not include_self_edge,
+                                                   data_parallel=data_parallel)
 else:
     train_data, test_data = get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=eval_frac,
                                                 edge_method=edge_method, edge_params=edge_params,
@@ -74,3 +81,6 @@ else:
                                                 reversed_edge_already_included=not include_reverse_edge,
                                                 self_edge_already_included=not include_self_edge)
 
+# train
+train_sdf(model, train_data, test_data, loss_funcs, n_epochs=n_epochs, print_every=print_every, device=device,
+          save_name=save_name, lr_0=lr_0, lr_scheduler_step_size=lr_step, lr_scheduler_gamma=lr_gamma)
