@@ -57,6 +57,7 @@ def test_sdf(model, data_loader, save_name, loss_funcs=None, use_cpu=False):
     model.eval()
     with torch.no_grad():
         for data in data_loader:
+            data = data.to(device=device)
             pred = model(data)
             preds.append(pred)
             if loss_funcs is not None:

@@ -162,6 +162,7 @@ def eval_sdf(model, meshfile, save_name, with_sdf=False, radius=0.3, min_n_neigh
     model.eval()
     with torch.no_grad():
         for data in data_loader:
+            data = data.to(device=device)
             pred = model(data)
             preds.append(pred)
             if loss_funcs is not None:
