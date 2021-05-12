@@ -140,7 +140,7 @@ def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, radius, min_n
 
 
 def create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius, min_n_neighbours, max_n_neighbours,
-                          with_sdf=False):
+                          with_sdf=False, batch_size=1):
     mesh = trimesh.load(surface_mesh)
     mesh, _ = read_and_process_mesh(mesh, with_rotate_or_scaling=False, with_scaling_to_unit_box=True)
     surface_points, _ = get_surface_points(mesh, mesh_size=0.1, show=False)
@@ -178,13 +178,13 @@ def create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius, min_
                               edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
         graph_data_list.append(graph_data)
     # data_loader = DataLoader(graph_data_list, batch_size=1)
-    data_loader = DataListLoader(graph_data_list, batch_size=1)
+    data_loader = DataListLoader(graph_data_list, batch_size=batch_size)
     return data_loader, sub_voxels_indices
 
 
 def eval_sdf(model, data_loader, save_name, voxels_res, sub_voxels_indices, loss_funcs=None, use_cpu=False):
     grid_sdfs = np.zeros(voxels_res ** 3)
-    device = get_device(use_cpu)
+    device = torch.device('cpu' if use_cpu else 'cuda')
     model = model.to(device=device)
     preds = []
     losses = []
