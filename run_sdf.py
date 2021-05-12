@@ -1,5 +1,5 @@
 from case_studies.sdf import train_sdf, get_sdf_data_loader, get_sdf_data_loader_3d
-from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, parse_arguments)
+from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss, parse_arguments, get_device)
 from torch_geometric.nn import DataParallel
 
 # data parameters
@@ -39,8 +39,8 @@ lr_gamma    = args.lr_gamma
 print_every = args.print_every
 save_name   = args.save_name
 eval_frac   = args.eval_frac
-device      = args.device
-data_parallel = len(device) > 1
+device      = get_device(args.device)
+data_parallel = isinstance(device, list)
 
 # setup model and appropriate loss function
 if network_name == "gat":

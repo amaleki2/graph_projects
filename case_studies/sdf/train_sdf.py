@@ -4,10 +4,9 @@ import numpy as np
 from src import get_device, train_forward_step
 
 
-def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_every=25, device='cpu',
+def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_every=25, device=torch.device('cpu'),
               save_name="", lr_0=0.001, lr_scheduler_step_size=50, lr_scheduler_gamma=0.5,
               resume_training=False, **losses_params):
-    device = get_device(device)
     if not isinstance(device, list):
         model = model.to(device=device)
     if resume_training:

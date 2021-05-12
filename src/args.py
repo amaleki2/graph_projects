@@ -76,6 +76,6 @@ def parse_arguments():
                         help='learning rate scheduler step size')
     parser.add_argument('--eval-frac', dest='eval_frac', type=float, default=0.1,
                         help='fraction of dataset for evaluation')
-    parser.add_argument('--device', dest='device', type=str, default=['cuda'], nargs="+",
+    parser.add_argument('--device', dest='device', type=str, default='cuda',
                         help='fraction of dataset for evaluation')
     return parser.parse_args()

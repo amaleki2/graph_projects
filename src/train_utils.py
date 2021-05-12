@@ -16,22 +16,21 @@ def find_best_gpu():
 
 
 def get_device(device):
-    assert isinstance(device, list)
-
-    if len(device) == 1 and device[0] == 'cpu':
+    if device == 'cpu':
         print('training using cpu')
         device = torch.device('cpu')
-    elif len(device) == 1 and device[0] == 'cuda':
+    elif device == 'cuda':
         print('training using gpu: ', end="")
         device = torch.device('cuda')
         gpu_id = find_best_gpu()
         if gpu_id:
             torch.cuda.set_device(gpu_id)
-    elif isinstance(device, list) and all(isinstance(x, int) for x in device):
-        device = [int(x) for x in device]
-        print('training using multiple gpus: ', device)
     else:
-        raise ValueError("device is not correct.")
+        try:
+            device = [int(x) for x in device.split()]
+        except:
+            raise ValueError("device is not correct.")
+
     return device
 
 
