@@ -13,6 +13,27 @@ from numpy.lib.stride_tricks import sliding_window_view
 from torch_geometric.data import Data, DataLoader
 
 
+
+def read_and_process_mesh(obj_in_file, with_rotate_or_scaling=True, with_scaling_to_unit_box=True):
+    mesh = trimesh.load(obj_in_file, force='mesh')
+    mesh.merge_vertices(merge_tex=True, merge_norm=True)
+    if with_rotate_or_scaling:
+        rot_mat = rotate(mesh, return_matrix=True)
+    else:
+        rot_mat = None
+
+    if with_scaling_to_unit_box:
+        s1 = mesh.bounding_box.centroid
+        s2 = 2 / np.max(mesh.bounding_box.extents)
+        new_vertices = mesh.vertices - s1
+        mesh.vertices = new_vertices * s2
+    else:
+        s1, s2 = None, None
+
+    return mesh, (rot_mat, s1, s2)
+
+
+
 # taken from mesh_to_sdf
 def get_raster_points(voxel_resolution):
     points = np.meshgrid(
@@ -110,6 +131,7 @@ def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, radius, min_n
 def create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius, min_n_neighbours, max_n_neighbours,
                           with_sdf=False):
     mesh = trimesh.load(surface_mesh)
+    mesh, _ = read_and_process_mesh(mesh, with_rotate_or_scaling=False, with_scaling_to_unit_box=True)
     surface_points = mesh.vertices
     grid_points = get_raster_points(voxels_res)
     sub_voxels_indices = get_sub_voxels_indices(voxels_res, sub_voxels_res)
