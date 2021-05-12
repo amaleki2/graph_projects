@@ -1,127 +1,201 @@
-# partially taken from DeepSDF
-
 import torch
+import tqdm
+import trimesh
 import numpy as np
+from case_studies.sdf.get_data_sdf import vertex_to_proximity_kdtree, compute_edge_features
+from src import get_device
+from trimesh.proximity import ProximityQuery
+import numpy
+if numpy.__version__ < '1.20':
+    print('numpy version 1.20 is required for this module')
+
+from numpy.lib.stride_tricks import sliding_window_view
+from torch_geometric.data import Data, DataLoader
 
 
+# taken from mesh_to_sdf
+def get_raster_points(voxel_resolution):
+    points = np.meshgrid(
+        np.linspace(-1, 1, voxel_resolution),
+        np.linspace(-1, 1, voxel_resolution),
+        np.linspace(-1, 1, voxel_resolution)
+    )
+    points = np.stack(points)
+    points = np.swapaxes(points, 1, 2)
+    points = points.reshape(3, -1).transpose().astype(np.float32)
+    return points
 
 
-def create_dataset(surface_points, volume_points):
-    points = np.concatenate((surface_points, volume_points))
+def get_all_edges(all_points, radius, min_n_neghbours, max_n_neighbours):
+    import pickle
+    with open('tree.pkl', 'rb') as fid:
+        tree = pickle.load(fid)
+    # tree = KDTree(all_points)
+    dist, idx = tree.query(all_points, k=max_n_neighbours)
+    s1, s2 = idx.shape
+    idx = np.stack((np.tile(np.arange(s1), (s2, 1)).T, idx), axis=2).reshape(-1, 2)  # get list of pairs
+    indicator = dist < radius
+    if min_n_neghbours is not None:
+        indicator[:min_n_neghbours] = True  # set the minimum number of edges
+    indicator = indicator.reshape(-1)
+    idx = idx[indicator]
+    edges = idx.T
+    return edges
 
 
+def get_sub_voxels_indices(voxels_res, sub_voxels_res):
+    N, n = voxels_res, sub_voxels_res
+    assert N % n == 0
+    x = np.arange(N ** 3).reshape((N, N, N))
+    m1, m2 = N - n + 1, N // n
+    return sliding_window_view(x, (m1, m1, m1))[:, :, :, ::n, ::n, ::n].reshape(n ** 3, m2 ** 3)
 
 
-def create_mesh(model, latent_vec, filename, N=256, max_batch=32 ** 3, offset=None, scale=None):
+def get_grid_points_sfds(mesh, points):
+    return -ProximityQuery(mesh).signed_distance(points)
+
+
+def get_sub_voxels_edges(all_edges, sub_voxel_id):
+    sender, receiver = all_edges[np.logical_and(all_edges <= sub_voxel_id.max(), all_edges >= sub_voxel_id.min())]
+    sender_in = np.in1d(sender, sub_voxel_id)
+    receiver_in = np.in1d(receiver, sub_voxel_id)
+    both_in = np.logical_and(sender_in, receiver_in)
+    edges = all_edges[:, both_in]
+    return edges
+
+
+def get_edge_features(x, edge_index, include_abs=False):
+    e1, e2 = edge_index
+    edge_attrs = x[e1, :] - x[e2, :]
+    if include_abs:
+        edge_attrs= np.concatenate((edge_attrs, np.abs(edge_attrs[:, :2])), axis=1)
+    return edge_attrs
+
+
+def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, radius, min_n_neighbours, max_n_neighbours,
+                         with_sdf=True):
+    mesh = trimesh.load(surface_mesh)
+    surface_points = mesh.vertices
+    grid_points = get_raster_points(voxels_res)
+    all_points = np.concatenate((surface_points, grid_points))
+    all_edges = get_all_edges(all_points, radius, min_n_neighbours, max_n_neighbours)
+    grid_points_sfds = get_grid_points_sfds(mesh, grid_points) if with_sdf else None
+    sub_voxels_indices = get_sub_voxels_indices(voxels_res, sub_voxels_res)
+
+    graph_data_list = []
+    for sub_voxel_id in tqdm.tqdm(sub_voxels_indices):
+        sub_voxel_grid_points = grid_points[sub_voxel_id]
+        sub_voxel_all_points = np.concatenate((surface_points, sub_voxel_grid_points))
+        sub_voxel_edges = get_sub_voxels_edges(all_edges, sub_voxel_id)
+        sub_voxel_edge_feats = get_edge_features(all_points, sub_voxel_edges)
+        u = np.zeros((1, 1))
+        if with_sdf:
+            sub_voxel_grid_sdfs = grid_points_sfds[sub_voxel_id]
+            sub_voxel_all_sdfs = np.concatenate((np.zeros(len(surface_points)), sub_voxel_grid_sdfs))
+            graph_data = Data(x=torch.from_numpy(sub_voxel_all_points).type(torch.float32),
+                              y=torch.from_numpy(sub_voxel_all_sdfs).type(torch.float32),
+                              u=torch.from_numpy(u).type(torch.float32),
+                              edge_index=torch.from_numpy(sub_voxel_edges).type(torch.long),
+                              edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
+        else:
+            graph_data = Data(x=torch.from_numpy(sub_voxel_all_points).type(torch.float32),
+                              u=torch.from_numpy(u).type(torch.float32),
+                              edge_index=torch.from_numpy(sub_voxel_edges).type(torch.long),
+                              edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
+        graph_data_list.append(graph_data)
+    data_loader = DataLoader(graph_data_list, batch_size=1)
+    return data_loader
+
+
+def create_voxel_dataset2(surface_mesh, voxels_res, sub_voxels_res, radius, min_n_neighbours, max_n_neighbours,
+                          with_sdf=False):
+    mesh = trimesh.load(surface_mesh)
+    surface_points = mesh.vertices
+    grid_points = get_raster_points(voxels_res)
+    sub_voxels_indices = get_sub_voxels_indices(voxels_res, sub_voxels_res)
+    graph_data_list = []
+    for sub_voxel_id in tqdm.tqdm(sub_voxels_indices):
+        sub_voxel_grid_points = grid_points[sub_voxel_id]
+        sub_voxel_all_points = np.concatenate((surface_points, sub_voxel_grid_points))
+        if with_sdf:
+            sub_voxel_grid_sdfs = get_grid_points_sfds(mesh, sub_voxel_grid_points)
+            y = np.concatenate((np.zeros(len(surface_points)), sub_voxel_grid_sdfs))
+            in_or_out = y < 0
+            x = np.concatenate((sub_voxel_all_points, in_or_out.reshape(-1, 1)), axis=1)
+            y = y.reshape(-1, 1).astype(float)
+        else:
+            on_surface = np.concatenate((np.ones(len(surface_points)), np.zeros(len(sub_voxel_grid_points))))
+            x = np.concatenate((sub_voxel_all_points, on_surface.reshape(-1, 1)), axis=1)
+        x = x.astype(float)
+
+        sub_voxel_edges = vertex_to_proximity_kdtree(sub_voxel_all_points, radius, max_n_neighbours=max_n_neighbours,
+                                                     min_n_edges=min_n_neighbours, n_features_to_consider=3)
+        sub_voxel_edge_feats = compute_edge_features(x, sub_voxel_edges)
+        u = np.zeros((1, 1))
+        if with_sdf:
+            graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
+                              y=torch.from_numpy(y).type(torch.float32),
+                              u=torch.from_numpy(u).type(torch.float32),
+                              edge_index=torch.from_numpy(sub_voxel_edges).type(torch.long),
+                              edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
+        else:
+            graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
+                              u=torch.from_numpy(u).type(torch.float32),
+                              edge_index=torch.from_numpy(sub_voxel_edges).type(torch.long),
+                              edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
+        graph_data_list.append(graph_data)
+    data_loader = DataLoader(graph_data_list, batch_size=1)
+    return data_loader
+
+
+def eval_sdf(model, meshfile, save_name, with_sdf=False, radius=0.3, min_n_neighbours=0, max_n_neighbours=40,
+             voxels_res=128, sub_voxels_res=8, loss_funcs=None, use_cpu=False):
+    grid_sdfs = np.zeros(voxels_res ** 3)
+    sub_voxels_indices = get_sub_voxels_indices(voxels_res, sub_voxels_res)
+    data_loader = create_voxel_dataset2(meshfile, voxels_res, sub_voxels_res, radius,
+                                        min_n_neighbours, max_n_neighbours, with_sdf=with_sdf)
+    device = get_device(use_cpu)
+    model = model.to(device=device)
+    preds = []
+    losses = []
+    model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
     model.eval()
-    voxel_origin = [-1, -1, -1]
-    voxel_size = 2.0 / (N - 1)
-
-    overall_index = torch.arange(0, N ** 3, 1, out=torch.LongTensor())
-    samples = torch.zeros(N ** 3, 4)
-
-    # transform first 3 columns to be the x, y, z index
-    samples[:, 2] = overall_index % N
-    samples[:, 1] = (overall_index.long() // N) % N
-    samples[:, 0] = ((overall_index.long() // N) // N) % N
-
-    # transform first 3 columns to be the x, y, z coordinate
-    samples[:, 0] = (samples[:, 0] * voxel_size) + voxel_origin[2]
-    samples[:, 1] = (samples[:, 1] * voxel_size) + voxel_origin[1]
-    samples[:, 2] = (samples[:, 2] * voxel_size) + voxel_origin[0]
-    samples.requires_grad = False
-
-    head = 0
-    num_samples = N ** 3
-    while head < num_samples:
-        sample_subset = samples[head : min(head + max_batch, num_samples), 0:3].cuda()
-        samples[head : min(head + max_batch, num_samples), 3] = (
-            deep_sdf.utils.decode_sdf(decoder, latent_vec, sample_subset)
-            .squeeze(1)
-            .detach()
-            .cpu()
-        )
-        head += max_batch
-
-    sdf_values = samples[:, 3]
-    sdf_values = sdf_values.reshape(N, N, N)
-
-    end = time.time()
-    print("sampling takes: %f" % (end - start))
-
-    convert_sdf_samples_to_ply(
-        sdf_values.data.cpu(),
-        voxel_origin,
-        voxel_size,
-        ply_filename + ".ply",
-        offset,
-        scale,
-    )
+    with torch.no_grad():
+        for data in data_loader:
+            pred = model(data)
+            preds.append(pred)
+            if loss_funcs is not None:
+                loss = [func(pred, data) for func in loss_funcs]
+                losses.append(loss)
+    for (voxel_id, pred) in zip(sub_voxels_indices, preds):
+        grid_sdfs[voxel_id] = pred[1][:-sub_voxels_indices.shape[1]]
+    grid_sdfs = grid_sdfs.reshape((voxels_res, voxels_res, voxels_res))
+    return grid_sdfs, losses
 
 
-def convert_sdf_samples_to_ply(
-    pytorch_3d_sdf_tensor,
-    voxel_grid_origin,
-    voxel_size,
-    ply_filename_out,
-    offset=None,
-    scale=None,
-):
-    """
-    Convert sdf samples to .ply
 
-    :param pytorch_3d_sdf_tensor: a torch.FloatTensor of shape (n,n,n)
-    :voxel_grid_origin: a list of three floats: the bottom, left, down origin of the voxel grid
-    :voxel_size: float, the size of the voxels
-    :ply_filename_out: string, path of the filename to save to
+if __name__ == '__main__':
+    from src import EncodeProcessDecode
+    surface_mesh = r'D:\data\space_claim_round2\tmp\Polygon_19902e4c-3d59-4fb5-a832-7fcf2215a8a9\geomFiles\geom.obj'
+    voxels_res = 128
+    sub_voxels_res = 8
+    radius = 0.3
+    min_n_neighbours = 0
+    max_n_neighbours = 40
+    save_name = "epd_64_5_0.3_spcm_new_1_knn40"
+    n_edge_in, n_edge_out = 4, 1
+    n_node_in, n_node_out = 4, 1
+    n_global_in, n_global_out = 1, 1
+    n_hidden = 64
+    n_process = 5
+    use_cpu = True
+    with_sdf = True
+    model = EncodeProcessDecode(n_edge_feat_in=n_edge_in, n_edge_feat_out=n_edge_out,
+                                n_node_feat_in=n_node_in, n_node_feat_out=n_node_out,
+                                n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
+                                mlp_latent_size=n_hidden, num_processing_steps=n_process,
+                                process_weights_shared=True)
 
-    This function adapted from: https://github.com/RobotLocomotion/spartan
-    """
-    start_time = time.time()
-
-    numpy_3d_sdf_tensor = pytorch_3d_sdf_tensor.numpy()
-
-    verts, faces, normals, values = skimage.measure.marching_cubes_lewiner(
-        numpy_3d_sdf_tensor, level=0.0, spacing=[voxel_size] * 3
-    )
-
-    # transform from voxel coordinates to camera coordinates
-    # note x and y are flipped in the output of marching_cubes
-    mesh_points = np.zeros_like(verts)
-    mesh_points[:, 0] = voxel_grid_origin[0] + verts[:, 0]
-    mesh_points[:, 1] = voxel_grid_origin[1] + verts[:, 1]
-    mesh_points[:, 2] = voxel_grid_origin[2] + verts[:, 2]
-
-    # apply additional offset and scale
-    if scale is not None:
-        mesh_points = mesh_points / scale
-    if offset is not None:
-        mesh_points = mesh_points - offset
-
-    # try writing to the ply file
-
-    num_verts = verts.shape[0]
-    num_faces = faces.shape[0]
-
-    verts_tuple = np.zeros((num_verts,), dtype=[("x", "f4"), ("y", "f4"), ("z", "f4")])
-
-    for i in range(0, num_verts):
-        verts_tuple[i] = tuple(mesh_points[i, :])
-
-    faces_building = []
-    for i in range(0, num_faces):
-        faces_building.append(((faces[i, :].tolist(),)))
-    faces_tuple = np.array(faces_building, dtype=[("vertex_indices", "i4", (3,))])
-
-    el_verts = plyfile.PlyElement.describe(verts_tuple, "vertex")
-    el_faces = plyfile.PlyElement.describe(faces_tuple, "face")
-
-    ply_data = plyfile.PlyData([el_verts, el_faces])
-    logging.debug("saving mesh to %s" % (ply_filename_out))
-    ply_data.write(ply_filename_out)
-
-    logging.debug(
-        "converting to ply format and writing to file took {} s".format(
-            time.time() - start_time
-        )
-    )
+    eval_sdf(model, surface_mesh, save_name, radius=radius, with_sdf=with_sdf,
+             min_n_neighbours=min_n_neighbours, max_n_neighbours=max_n_neighbours,
+             voxels_res=voxels_res, sub_voxels_res=sub_voxels_res, loss_funcs=None, use_cpu=use_cpu)

@@ -6,6 +6,7 @@ import pyflann
 import numpy as np
 from torch_geometric.data import Data, DataLoader
 from scipy.spatial import distance_matrix
+from sklearn.neighbors import KDTree
 
 
 def cells_to_edges(cells):
@@ -45,6 +46,20 @@ def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=40, approx
         new_edges = np.array(new_edges).astype(int)
         edges = np.concatenate((edges, new_edges), axis=1)
     edges = edges.T
+    return edges
+
+
+def vertex_to_proximity_kdtree(x, radius, max_n_neighbours=40, min_n_edges=0, n_features_to_consider=3):
+    points = x[:, :n_features_to_consider]
+    tree = KDTree(points)
+    dist, idx = tree.query(points, k=max_n_neighbours)
+    s1, s2 = idx.shape
+    idx = np.stack((np.tile(np.arange(s1), (s2, 1)).T, idx), axis=2).reshape(-1, 2)  # get list of pairs
+    indicator = dist < radius
+    indicator[:min_n_edges] = 1   # set the minimum number of edges
+    indicator = indicator.reshape(-1)
+    idx = idx[indicator]  # set the radius of proximity
+    edges = idx.T
     return edges
 
 
@@ -179,8 +194,10 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
             elif edge_method == 'proximity':
                 knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 radius = edge_params['radius']
-                min_n_edges = edge_params.get('min_n_edges')
-                edges = vertices_to_proximity(x, radius, cache_knn=knn_idx, min_n_edges=min_n_edges)
+                min_n_edges = edge_params.get('min_n_edges', 0)
+                # edges = vertices_to_proximity(x, radius, cache_knn=knn_idx, min_n_edges=min_n_edges)
+                edges = vertex_to_proximity_kdtree(x, radius, max_n_neighbours=40,
+                                                   min_n_edges=min_n_edges, n_features_to_consider=3)
             elif edge_method == 'both':
                 edges1 = cells_to_edges(cells.T)
                 radius = edge_params['radius']
