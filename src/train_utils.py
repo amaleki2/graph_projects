@@ -27,6 +27,7 @@ def get_device(device):
             torch.cuda.set_device(gpu_id)
     else:
         try:
+            print('training using multiple gpus: ' + device)
             device = [int(x) for x in device.split()]
         except:
             raise ValueError("device is not correct.")

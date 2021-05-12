@@ -7,8 +7,12 @@ from src import get_device, train_forward_step
 def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_every=25, device=torch.device('cpu'),
               save_name="", lr_0=0.001, lr_scheduler_step_size=50, lr_scheduler_gamma=0.5,
               resume_training=False, **losses_params):
-    if not isinstance(device, list):
+    if isinstance(device, list):  # data parallel
+        device0 = torch.device('cuda:'%device[0])
+        model = model.to(device0)
+    else:
         model = model.to(device=device)
+
     if resume_training:
         train_losses_list = np.load("save_dir/loss_train_" + save_name + ".npy").tolist()
         test_losses_list = np.load("save_dir/loss_test_" + save_name + ".npy").tolist()
