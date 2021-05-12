@@ -8,7 +8,7 @@ def train_sdf(model, train_data, test_data, loss_funcs, n_epochs=500, print_ever
               save_name="", lr_0=0.001, lr_scheduler_step_size=50, lr_scheduler_gamma=0.5,
               resume_training=False, **losses_params):
     if isinstance(device, list):  # data parallel
-        device0 = torch.device('cuda:'%device[0])
+        device0 = torch.device('cuda:%d'%device[0])
         model = model.to(device0)
     else:
         model = model.to(device=device)
