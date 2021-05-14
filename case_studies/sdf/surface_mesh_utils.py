@@ -3,6 +3,7 @@ import sys
 import meshio
 import numpy as np
 import tqdm
+import trimesh
 
 
 def generate_gmsh_edge_and_cells(cells):
@@ -150,3 +151,39 @@ def generate_surface_mesh(mesh_file=None, mesh_points=None, mesh_faces=None, lc=
         gmsh.write(saved_name)
 
     return True
+
+
+def rotate(mesh, matrix=None, return_matrix=False):
+    if matrix is None:
+        matrix = trimesh.transformations.random_rotation_matrix()
+    mesh.apply_transform(matrix)
+    if return_matrix:
+        return matrix
+
+
+def translate(mesh, vector=None):
+    if vector is None:
+        vector = np.random.random(3)
+    matrix = trimesh.transformations.translation_matrix(vector)
+    mesh.apply_transform(matrix)
+
+
+def scale(mesh, factor=None, origin=None, direction=None):
+    if factor is None:
+        factor = np.random.random() * 1.5 + 0.5
+    matrix = trimesh.transformations.scale_matrix(factor, origin=origin, direction=direction)
+    mesh.apply_transform(matrix)
+
+
+def refine_surface_mesh(mesh, mesh_size=0.1, show=False):
+    # gmsh does not write in obj, so have to save in vtk.
+    # trimesh does not read vtk, so have to read with meshio and convert to trimesh.Trimesh
+    generate_surface_mesh(mesh_points=mesh.vertices, mesh_faces=mesh.faces, lc=mesh_size,
+                          saved_name='tmp.vtk', show=show)
+    surface_mesh = meshio.read('tmp.vtk')
+    surface_points = surface_mesh.points
+    surface_faces = surface_mesh.get_cells_type('triangle')
+    mesh = trimesh.Trimesh(surface_points, surface_faces)
+    return mesh
+
+

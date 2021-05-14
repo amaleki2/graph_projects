@@ -2,87 +2,10 @@ import os
 import tqdm
 import torch
 import meshio
-import pyflann
 import numpy as np
 from torch_geometric.data import Data, DataLoader, DataListLoader
-from scipy.spatial import distance_matrix
-from sklearn.neighbors import KDTree
-
-
-def cells_to_edges(cells):
-    v0v1 = cells[:, :2]
-    v1v2 = cells[:, 1:]
-    v0v2 = cells[:, 0:3:2]
-    edge_pairs = np.concatenate((v0v1, v1v2, v0v2))
-    edge_pairs = np.sort(edge_pairs, axis=1)
-    edge_pairs = np.unique(edge_pairs, axis=0)
-    return edge_pairs
-
-
-def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=40, approx_knn=False, min_n_edges=None):
-    if cache_knn is not None and os.path.isfile(cache_knn):
-        dist_val, dist_idx = np.load(cache_knn)
-        dist_idx = dist_idx.astype(int)
-    else:
-        n_features_to_consider = min(3, x.shape[1] - 1)  # 2 for 2d, 3 for 3d. ignore normal features.
-        if approx_knn and len(x) > 10000:
-            flann = pyflann.FLANN()
-            dist_idx, dist_val = flann.nn(x[:, :n_features_to_consider], x[:, :n_features_to_consider],
-                                          max_n_neighbours, algorithm="kmeans", branching=32, iterations=7, checks=16)
-            dist_val **= 0.5
-        else:
-            dist = distance_matrix(x[:, :n_features_to_consider], x[:, :n_features_to_consider])
-            dist_idx = np.argsort(dist, axis=1)[:, :max_n_neighbours]
-            dist_val = np.sort(dist, axis=1)[:, :max_n_neighbours]
-        if cache_knn is not None:
-            np.save(cache_knn, np.array([dist_val, dist_idx]))
-    neighbours_idx = np.where(dist_val < radius)
-    senders = neighbours_idx[0].astype(np.int32)
-    receivers = neighbours_idx[1].astype(np.int32)
-    edges = [senders, dist_idx[senders, receivers]]
-    edges = np.array(edges)
-    if min_n_edges is not None:
-        new_edges = [np.arange(len(x)).repeat(min_n_edges), dist_idx[:, :min_n_edges].reshape(-1)]
-        new_edges = np.array(new_edges).astype(int)
-        edges = np.concatenate((edges, new_edges), axis=1)
-    edges = edges.T
-    return edges
-
-
-def vertex_to_proximity_kdtree(x, radius, max_n_neighbours=40, min_n_edges=0, n_features_to_consider=3):
-    points = x[:, :n_features_to_consider]
-    tree = KDTree(points)
-    dist, idx = tree.query(points, k=max_n_neighbours)
-    s1, s2 = idx.shape
-    idx = np.stack((np.tile(np.arange(s1), (s2, 1)).T, idx), axis=2).reshape(-1, 2)  # get list of pairs
-    indicator = dist < radius
-    indicator[:min_n_edges] = 1   # set the minimum number of edges
-    indicator = indicator.reshape(-1)
-    idx = idx[indicator]  # set the radius of proximity
-    edges = idx.T
-    return edges
-
-
-def compute_edge_features(x, edge_index, include_abs=False):
-    e1, e2 = edge_index
-    edge_attrs = x[e1, :] - x[e2, :]
-    if include_abs:
-        edge_attrs= np.concatenate((edge_attrs, np.abs(edge_attrs[:, :2])), axis=1)
-    return edge_attrs
-
-
-def add_reversed_edges(edges):
-    edges_reversed = np.flipud(edges)
-    edges = np.concatenate([edges, edges_reversed], axis=1)
-    return edges
-
-
-def add_self_edges(edges):
-    n_nodes = edges.max() + 1
-    self_edges = [list(range(n_nodes))] * 2
-    self_edges = np.array(self_edges)
-    edges = np.concatenate([edges, self_edges], axis=1)
-    return edges
+from case_studies.sdf.util_sdf import (cells_to_edges, vertices_to_proximity, vertex_to_proximity_kdtree,
+                                       compute_edge_features, add_reversed_edges, add_self_edges)
 
 
 def get_sdf_data_loader(n_objects, data_folder, batch_size, eval_frac=0.2, i_start=0,

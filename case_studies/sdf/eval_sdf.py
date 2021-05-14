@@ -256,8 +256,9 @@ def sdf_to_grids(preds, voxels_res, sub_voxels_indices):
 
 
 def sdf_to_grids_interpolate(volume_points, preds, method='linear', res=128):
+    eps = 1e-3
     res_complex = res * 1j
-    grid_x, grid_y, grid_z = np.mgrid[0:1:res_complex, 0:1:res_complex, 0:1:res_complex]
+    grid_x, grid_y, grid_z = np.mgrid[-1+eps:1-eps:res_complex, -1+eps:1-eps:res_complex, -1+eps:1-eps:res_complex]
     points = np.concatenate(volume_points)
     preds  = np.concatenate([p[1][-len(vp):].cpu().numpy().squeeze() for (p, vp) in zip(preds, volume_points)])
     grid_sdfs = griddata(points, preds, (grid_x, grid_y, grid_z), method=method)
