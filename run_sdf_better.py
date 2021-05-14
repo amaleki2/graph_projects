@@ -74,6 +74,7 @@ with_normals = args.n_node_in > 4
 train_sdf_with_shuffling(model,
                          data_folder,
                          loss_funcs,
+                         update_data_every=5,
                          n_objects=n_objects,
                          eval_frac=eval_frac,
                          n_epochs=n_epochs,

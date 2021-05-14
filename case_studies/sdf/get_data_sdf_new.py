@@ -247,6 +247,7 @@ def get_sdf_data_loader_3d(n_objects, processed_cad_data_folder, volume_mesh_dat
     train_idx = random_idx[:int((1 - eval_frac) * n_objects)]
     test_idx = random_idx[int((1 - eval_frac) * n_objects):]
 
+    print("computing train set")
     train_graph_data_list = get_sdf_data_list(train_idx, volume_mesh_data_folder, edge_method=edge_method,
                                               edge_params=edge_params,
                                               with_sdf_signs=with_sdf_signs,
@@ -254,6 +255,7 @@ def get_sdf_data_loader_3d(n_objects, processed_cad_data_folder, volume_mesh_dat
                                               reversed_edge_already_included=reversed_edge_already_included,
                                               self_edge_already_included=self_edge_already_included)
 
+    print("computing test set")
     test_graph_data_list  = get_sdf_data_list(test_idx, volume_mesh_data_folder, edge_method=edge_method, edge_params=edge_params,
                                               no_global=no_global, no_edge=no_edge, with_normals=with_normals,
                                               with_sdf_signs=with_sdf_signs,

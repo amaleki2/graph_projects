@@ -8,6 +8,7 @@ from case_studies.sdf.get_data_sdf_new import get_sdf_data_loader_3d
 def train_sdf_with_shuffling(model,
                              processed_cad_data_folder,
                              loss_funcs,
+                             update_data_every=5,
                              n_objects=1000,
                              eval_frac=0.2,
                              n_epochs=500,
@@ -46,23 +47,24 @@ def train_sdf_with_shuffling(model,
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_scheduler_step_size, gamma=lr_scheduler_gamma)
 
     for epoch in range(i_start, n_epochs + 1):
-        print("loading data ...")
-        train_data_loader, test_data_loader = \
-            get_sdf_data_loader_3d(n_objects, processed_cad_data_folder,
-                                   batch_size=batch_size,
-                                   shuffle=shuffle,
-                                   random_seed=random_seed,
-                                   eval_frac=eval_frac,
-                                   n_volume_points=n_volume_points,
-                                   edge_method=edge_method,
-                                   edge_params=edge_params,
-                                   no_edge=no_edge,
-                                   no_global=no_global,
-                                   with_normals=with_normals,
-                                   with_sdf_signs=with_sdf_signs,
-                                   data_parallel=data_parallel,
-                                   reversed_edge_already_included=reversed_edge_already_included,
-                                   self_edge_already_included=self_edge_already_included)
+        if epoch % update_data_every == 0:
+            print("computing volume mesh files ...")
+            train_data_loader, test_data_loader = \
+                get_sdf_data_loader_3d(n_objects, processed_cad_data_folder,
+                                       batch_size=batch_size,
+                                       shuffle=shuffle,
+                                       random_seed=random_seed,
+                                       eval_frac=eval_frac,
+                                       n_volume_points=n_volume_points,
+                                       edge_method=edge_method,
+                                       edge_params=edge_params,
+                                       no_edge=no_edge,
+                                       no_global=no_global,
+                                       with_normals=with_normals,
+                                       with_sdf_signs=with_sdf_signs,
+                                       data_parallel=data_parallel,
+                                       reversed_edge_already_included=reversed_edge_already_included,
+                                       self_edge_already_included=self_edge_already_included)
 
         epoch_loss = []
         for data in train_data_loader:
