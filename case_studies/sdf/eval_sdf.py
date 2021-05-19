@@ -135,9 +135,9 @@ def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params, 
         return graph_data
 
     if n_jobs == 1:
-        graph_data_list = [func(id) for id in sub_voxels_indices]
+        graph_data_list = [func(id) for id in tqdm.tqdm(sub_voxels_indices)]
     else:
-        graph_data_list = Parallel(n_jobs=n_jobs)(delayed(func)(idx) for idx in sub_voxels_indices)
+        graph_data_list = Parallel(n_jobs=n_jobs)(delayed(func)(idx) for idx in tqdm.tqdm(sub_voxels_indices))
     # graph_data_list = []
     # for sub_voxel_id in tqdm.tqdm(sub_voxels_indices):
     #     sub_voxel_grid_points = grid_points[sub_voxel_id]
@@ -255,8 +255,8 @@ def sdf_to_grids_interpolate(volume_points, preds, method='linear', res=128):
 if __name__ == '__main__':
     from src import EncodeProcessDecode
     surface_mesh = r'C:\Users\amaleki\Downloads\NewMesh\Servo Horn - Half Arm_20.obj'
-    voxels_res = 64
-    sub_voxels_res = 16
+    voxels_res = 32
+    sub_voxels_res = 8
     radius = 0.3
     min_n_edges = 0
     max_n_nedges = 40

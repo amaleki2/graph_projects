@@ -211,9 +211,9 @@ def get_sdf_data_list(rnd_idx, data_folder, edge_method='edge', edge_params=None
         return graph_data
 
     if n_jobs == 1:
-        graph_data_list = [func(idx) for idx in rnd_idx]
+        graph_data_list = [func(idx) for idx in tqdm.tqdm(rnd_idx)]
     else:
-        graph_data_list = Parallel(n_jobs=n_jobs)(delayed(func)(idx) for idx in rnd_idx)
+        graph_data_list = Parallel(n_jobs=n_jobs)(delayed(func)(idx) for idx in tqdm.tqdm(rnd_idx))
 
     return graph_data_list
 
