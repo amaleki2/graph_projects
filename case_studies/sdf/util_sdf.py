@@ -50,10 +50,12 @@ def vertices_to_proximity(x, radius, cache_knn=None, max_n_neighbours=40, approx
     return edges
 
 
-def vertex_to_proximity_kdtree(x, radius, max_n_neighbours=40, min_n_edges=0, n_features_to_consider=3):
+def vertex_to_proximity_kdtree(x, edge_params, n_features_to_consider=3):
+    radius = edge_params['radius']
+    min_n_edges, max_n_edges = edge_params['min_n_edges'], edge_params['max_n_edges']
     points = x[:, :n_features_to_consider]
     tree = KDTree(points)
-    dist, idx = tree.query(points, k=max_n_neighbours)
+    dist, idx = tree.query(points, k=max_n_edges)
     s1, s2 = idx.shape
     idx = np.stack((np.tile(np.arange(s1), (s2, 1)).T, idx), axis=2).reshape(-1, 2)  # get list of pairs
     indicator = dist < radius

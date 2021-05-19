@@ -70,14 +70,8 @@ class SDFBatch(Batch):
             data_list.append(data)
         super().from_data_list(data_list, follow_batch=follow_batch)
 
-
-
-
-    def
-
     def _get_volume_points():
         return torch.rand(_N_VOLUME_POINTS) * 2 - 1
-
 
     def _get_edges(points):
         pass

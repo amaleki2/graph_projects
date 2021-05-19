@@ -16,9 +16,11 @@ def parse_arguments():
                         help='graph edges method, options: `edge`=mesh edge, `proximity`=radial proximity, and `both`')
     parser.add_argument('--min-n-edges', dest='min_n_edges', type=int, default=0,
                         help='minimum number of edges for each node, disregard if r > proximity radius.')
-    parser.add_argument('--edge-feat-on', dest='edge_features_on', type=int, default=1, choices=[0, 1],
+    parser.add_argument('--max-n-edges', dest='max_n_edges', type=int, default=40,
+                        help='maximum number of edges for each node, disregard if r < proximity radius.')
+    parser.add_argument('--with-no-edge-feature', dest='with_no_edge_feature', type=int, default=0, choices=[0, 1],
                         help='use edge features or not')
-    parser.add_argument('--global-feat-on', dest='global_features_on', type=int, default=1, choices=[0, 1],
+    parser.add_argument('--with-no-global-feature', dest='with_no_global_feature', type=int, default=0, choices=[0, 1],
                         help='use global features or not')
     parser.add_argument('--include-reverse-edge', dest='include_reverse_edge', type=int, default=1, choices=[0, 1],
                         help='include reverse edge to make graph undirectional')
@@ -78,4 +80,10 @@ def parse_arguments():
                         help='fraction of dataset for evaluation')
     parser.add_argument('--device', dest='device', type=str, default='cuda',
                         help='fraction of dataset for evaluation')
+    parser.add_argument('--shuffle', dest='shuffle', type=int, default=0,
+                        help='shuffle after every epoch')
+    parser.add_argument('--update-data-every', dest='update_data_every', type=int, default=10,
+                        help='create new dataset every epochs')
+    parser.add_argument('--n-jobs', dest='n_jobs', type=int, default=4,
+                        help='create new dataset every epochs')
     return parser.parse_args()

@@ -121,8 +121,7 @@ def get_sdf_data_loader_3d(n_objects, data_folder, batch_size, eval_frac=0.2, i_
                 # knn_idx = os.path.join(data_folder, "knn%d.npy" % i)
                 # edges = vertices_to_proximity(x, radius, cache_knn=knn_idx, min_n_edges=min_n_edges)
                 # edges = edges.T
-                edges = vertex_to_proximity_kdtree(x, radius, max_n_neighbours=max_n_neighbours,
-                                                   min_n_edges=min_n_edges, n_features_to_consider=3)
+                edges = vertex_to_proximity_kdtree(x, edge_params, n_features_to_consider=3)
             elif edge_method == 'both':
                 edges1 = cells_to_edges(cells.T)
                 radius = edge_params['radius']

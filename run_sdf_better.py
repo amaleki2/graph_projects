@@ -8,12 +8,10 @@ args = parse_arguments()
 n_objects   = args.n_object
 data_folder = args.data_folder
 edge_method = args.edge_method
-edge_params = {'radius': args.prox_radius, 'min_n_edges': args.min_n_edges}
-no_edge = not args.edge_features_on  # EncodeProcessDecode specific
-no_global = not args.global_features_on  # EncodeProcessDecode specific
+edge_params = {'radius': args.prox_radius, 'min_n_edges': args.min_n_edges, 'max_n_edges': args.max_n_edges}
+no_edge = args.with_no_edge_feature  # EncodeProcessDecode specific
+no_global = args.with_no_global_feature  # EncodeProcessDecode specific
 include_reverse_edge = args.include_reverse_edge   # EncodeProcessDecode specific
-include_self_edge = args.include_self_edge   # EncodeProcessDecode specific
-with_sdf_signs = args.with_sdf_signs
 
 # choose model
 network_name     = args.network_name
@@ -41,7 +39,10 @@ print_every = args.print_every
 save_name   = args.save_name
 eval_frac   = args.eval_frac
 device      = get_device(args.device)
+shuffle     = args.shuffle
 data_parallel = isinstance(device, list)
+update_data_every = args.update_data_every
+n_jobs = args.n_jobs
 
 # setup model and appropriate loss function
 if network_name == "gat":
@@ -66,15 +67,11 @@ elif network_name == "epd":
 else:
     raise(ValueError("model name %s is not recognized" %network_name))
 
-# load data
-three_d = args.n_node_in >= 4
-with_normals = args.n_node_in > 4
-
 # train
 train_sdf_with_shuffling(model,
                          data_folder,
                          loss_funcs,
-                         update_data_every=5,
+                         update_data_every=update_data_every,
                          n_objects=n_objects,
                          eval_frac=eval_frac,
                          n_epochs=n_epochs,
@@ -83,15 +80,11 @@ train_sdf_with_shuffling(model,
                          no_global=no_global,
                          no_edge=no_edge,
                          print_every=print_every,
-                         with_normals=with_normals,
-                         with_sdf_signs=with_sdf_signs,
-                         reversed_edge_already_included=not include_reverse_edge,
-                         self_edge_already_included=not include_self_edge,
+                         include_reverse_edge=include_reverse_edge,
                          device=device,
                          save_name=save_name,
                          lr_0=lr_0,
                          lr_scheduler_step_size=lr_step,
                          lr_scheduler_gamma=lr_gamma,
                          batch_size=batch_size,
-                         shuffle=False,
-                         random_seed=444)
+                         shuffle=shuffle)
