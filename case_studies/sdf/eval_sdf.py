@@ -103,7 +103,7 @@ def get_edge_features(x, edge_index, include_abs=False):
 
 
 def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params, n_jobs=1,
-                         batch_size=1, include_reverse_edges=False, data_parallel=False):
+                         batch_size=1, include_reverse_edges=False, data_parallel=False, force_n_volume_points_to=None):
     mesh = trimesh.load(surface_mesh, force='mesh', skip_materials=True)
     mesh, _ = read_and_process_mesh(mesh, with_rotate_or_scaling=False, with_scaling_to_unit_box=True)
     surface_points, _ = get_surface_points(mesh, mesh_size=0.1, show=False)
@@ -112,6 +112,10 @@ def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params, 
 
     def func(id):
         sub_voxel_grid_points = grid_points[id]
+        if force_n_volume_points_to is not None:
+            n_missing = force_n_volume_points_to - len(sub_voxel_grid_points)
+            rnd_points = np.random.random((n_missing, 3)) * 2 - 1
+            sub_voxel_grid_points = np.concatenate((rnd_points, sub_voxel_grid_points))
         sub_voxel_all_points = np.concatenate((surface_points, sub_voxel_grid_points))
         sub_voxel_grid_sdfs = get_grid_points_sfds(mesh, sub_voxel_grid_points)
         y = np.concatenate((np.zeros(len(surface_points)), sub_voxel_grid_sdfs))
@@ -216,16 +220,21 @@ def create_random_dataset(surface_mesh, n_volume_points, radius, min_n_neighbour
     return data_loader, volume_points_split
 
 
-def eval_sdf(model, data_loader, save_name, loss_funcs=None, device='cuda'):
-    device = get_device(device)
+def eval_sdf(model, data_loader, save_name, loss_funcs=None, device=torch.device('cuda')):
     preds = []
     losses = []
     model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
-    model = model.to(device=device)
+    data_parallel = isinstance(device, list)
+    if data_parallel:  # data parallel
+        device0 = torch.device('cuda:%d'%device[0])
+        model = model.to(device0)
+    else:
+        model = model.to(device=device)
     model.eval()
     with torch.no_grad():
-        for data in data_loader:
-            data = data.to(device=device)
+        for data in tqdm.tqdm(data_loader):
+            if not data_parallel:
+                data = data.to(device=device)
             pred = model(data)
             preds.append(pred)
             if loss_funcs is not None:
