@@ -116,7 +116,8 @@ def prepare_volume_mesh_file(n_objects,
                              volume_mesh_data_folder,
                              n_volume_points=5000,
                              delete_old=True,
-                             use_refined_mesh_for_sdf=False):
+                             use_refined_mesh_for_sdf=False,
+                             n_jobs=1):
     if delete_old:
         shutil.rmtree(volume_mesh_data_folder, ignore_errors=True)
 
@@ -126,12 +127,11 @@ def prepare_volume_mesh_file(n_objects,
     if n_volume_points is None:
         n_volume_points = np.random.randint(1000, 10000)
 
-    id = 0
     refined_cad_files_list = [x for x in os.listdir(processed_cad_data_folder) if '_refined' in x]
     cad_files_list = [x.replace('_refined', '') for x in refined_cad_files_list]
     assert len(cad_files_list) == len(refined_cad_files_list)
 
-    for idx in tqdm.tqdm(range(n_objects)):
+    def func(idx):
         cad_file = cad_files_list[idx]
         refined_cad_file = refined_cad_files_list[idx]
         cad_file = os.path.join(processed_cad_data_folder, cad_file)
@@ -139,15 +139,19 @@ def prepare_volume_mesh_file(n_objects,
         mesh = trimesh.load(cad_file, force='mesh', skip_materials=True)
         refined_mesh = trimesh.load(refined_cad_file, force='mesh', skip_materials=True)
         surface_points = refined_mesh.vertices
-        surface_faces  = refined_mesh.faces
+        surface_faces = refined_mesh.faces
         volume_points = get_volume_points_randomly(n_volume_points)
         if use_refined_mesh_for_sdf:  # slower and unnecessary unless the surfaces are re-meshed
             volume_sdfs = get_sdf_points(refined_mesh, volume_points)
         else:
             volume_sdfs = get_sdf_points(mesh, volume_points)
-        vtk_out_file = os.path.join(volume_mesh_data_folder, "volume_mesh_%d.vtk" % id)
+        vtk_out_file = os.path.join(volume_mesh_data_folder, "volume_mesh_%d.vtk" % idx)
         write_to_file(surface_points, volume_points, volume_sdfs, surface_faces, vtk_out_file)
-        id += 1
+
+    if n_jobs == 1:
+        [func(idx) for idx in tqdm.tqdm(range(n_objects))]
+    else:
+        Parallel(n_jobs=n_jobs)(delayed(func)(idx) for idx in tqdm.tqdm(range(n_objects)))
 
 
 def get_sdf_data_list(rnd_idx, data_folder, edge_method='edge', edge_params=None, n_jobs=1,
@@ -229,7 +233,7 @@ def get_sdf_data_loader_3d(n_objects, processed_cad_data_folder, volume_mesh_dat
         volume_mesh_data_folder = os.path.join(parent_folder, processed_folder_name)
 
     prepare_volume_mesh_file(n_objects, processed_cad_data_folder, volume_mesh_data_folder,
-                             n_volume_points=n_volume_points)
+                             n_volume_points=n_volume_points, n_jobs=n_jobs)
 
     # volumes are already randomly selected.
     # if random_seed is not None:

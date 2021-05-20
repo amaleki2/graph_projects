@@ -226,7 +226,7 @@ def eval_sdf(model, data_loader, save_name, loss_funcs=None, device=torch.device
     model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
     data_parallel = isinstance(device, list)
     if data_parallel:  # data parallel
-        device0 = torch.device('cuda:%d'%device[0])
+        device0 = torch.device('cuda:%d' % device[0])
         model = model.to(device0)
     else:
         model = model.to(device=device)
@@ -264,8 +264,8 @@ def sdf_to_grids_interpolate(volume_points, preds, method='linear', res=128):
 if __name__ == '__main__':
     from src import EncodeProcessDecode
     surface_mesh = r'C:\Users\amaleki\Downloads\NewMesh\Servo Horn - Half Arm_20.obj'
-    voxels_res = 32
-    sub_voxels_res = 8
+    voxels_res = 16
+    sub_voxels_res = 4
     radius = 0.3
     min_n_edges = 0
     max_n_nedges = 40
@@ -275,8 +275,9 @@ if __name__ == '__main__':
     n_global_in, n_global_out = 1, 1
     n_hidden = 64
     n_process = 5
-    use_cpu = False
-    with_sdf = False
+    device = '0'
+    device = get_device(device)
+    data_parallel = isinstance(device, list)
     model = EncodeProcessDecode(n_edge_feat_in=n_edge_in, n_edge_feat_out=n_edge_out,
                                 n_node_feat_in=n_node_in, n_node_feat_out=n_node_out,
                                 n_global_feat_in=n_global_in, n_global_feat_out=n_global_out,
@@ -288,10 +289,10 @@ if __name__ == '__main__':
     t1 = time.time()
     data_loader, sub_voxels_indices = create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params,
                                                            batch_size=1, include_reverse_edges=True,
-                                                           data_parallel=False, n_jobs=6)
+                                                           data_parallel=data_parallel, n_jobs=6)
     t2 = time.time()
     print(t2 - t1)
 
-    preds, losses = eval_sdf(model, data_loader, save_name, loss_funcs=None, device='cuda')
+    preds, losses = eval_sdf(model, data_loader, save_name, loss_funcs=None, device=device)
 
     grid_sdfs = sdf_to_grids(preds, voxels_res, sub_voxels_indices)

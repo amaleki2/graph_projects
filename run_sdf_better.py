@@ -87,4 +87,5 @@ train_sdf_with_shuffling(model,
                          lr_scheduler_step_size=lr_step,
                          lr_scheduler_gamma=lr_gamma,
                          batch_size=batch_size,
-                         shuffle=shuffle)
+                         shuffle=shuffle,
+                         n_jobs=n_jobs)
