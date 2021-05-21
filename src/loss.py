@@ -89,6 +89,21 @@ def graph_loss_data_parallel(pred, data, loss_func=nn.L1Loss, aggr_func=None, **
     return loss
 
 
+def graph_loss_data_parallel_zero_focused(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
+    if aggr_func is None:
+        aggr_func = lambda x: sum(x) / len(x)
+
+    device = pred[0][1].device
+    data_y = torch.cat([d.y for d in data]).to(device)
+    if isinstance(pred, list):
+        loss = [loss_func()(out[1], data_y) for out in pred]
+        loss = aggr_func(loss)
+    else:
+        mask = abs(data_y) < 0.1
+        loss = loss_func()(pred[1][mask], data_y[mask])
+    return loss
+
+
 def clamped_loss_data_parallel(pred, data, loss_func=nn.L1Loss, maxv=0.1, **kwargs):
     device = pred[0][1].device
     data_y = torch.cat([d.y for d in data]).to(device)

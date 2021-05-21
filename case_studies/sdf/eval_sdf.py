@@ -142,30 +142,6 @@ def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params, 
         graph_data_list = [func(id) for id in tqdm.tqdm(sub_voxels_indices)]
     else:
         graph_data_list = Parallel(n_jobs=n_jobs)(delayed(func)(idx) for idx in tqdm.tqdm(sub_voxels_indices))
-    # graph_data_list = []
-    # for sub_voxel_id in tqdm.tqdm(sub_voxels_indices):
-    #     sub_voxel_grid_points = grid_points[sub_voxel_id]
-    #     sub_voxel_all_points = np.concatenate((surface_points, sub_voxel_grid_points))
-    #     sub_voxel_grid_sdfs = get_grid_points_sfds(mesh, sub_voxel_grid_points)
-    #     y = np.concatenate((np.zeros(len(surface_points)), sub_voxel_grid_sdfs))
-    #     on_surface = np.concatenate((np.ones(len(surface_points)), np.zeros(len(sub_voxel_grid_points))))
-    #     x = np.concatenate((sub_voxel_all_points, on_surface.reshape(-1, 1)), axis=1)
-    #     x = x.astype(float)
-    #     y = y.reshape(-1, 1).astype(float)
-    #
-    #     sub_voxel_edges = vertex_to_proximity_kdtree(sub_voxel_all_points, edge_params, n_features_to_consider=3)
-    #     if include_reverse_edges:
-    #         sub_voxel_edges = add_reversed_edges(sub_voxel_edges)
-    #     sub_voxel_edges = np.unique(sub_voxel_edges, axis=1)
-    #
-    #     sub_voxel_edge_feats = compute_edge_features(x, sub_voxel_edges)
-    #     u = np.zeros((1, 1))
-    #     graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
-    #                       y=torch.from_numpy(y).type(torch.float32),
-    #                       u=torch.from_numpy(u).type(torch.float32),
-    #                       edge_index=torch.from_numpy(sub_voxel_edges).type(torch.long),
-    #                       edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
-    #     graph_data_list.append(graph_data)
 
     if data_parallel:
         data_loader = DataListLoader(graph_data_list, batch_size=batch_size)
@@ -174,49 +150,50 @@ def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params, 
     return data_loader, sub_voxels_indices
 
 
-def create_random_dataset(surface_mesh, n_volume_points, radius, min_n_neighbours, max_n_neighbours,
-                          with_sdf=False, batch_size=1):
+def create_random_dataset(surface_mesh, n_volume_points, edge_params, batch_size=1,
+                          n_jobs=1, data_parallel=True,
+                          scaler=2, include_reverse_edges=True):
     mesh = trimesh.load(surface_mesh)
     mesh, _ = read_and_process_mesh(mesh, with_rotate_or_scaling=False, with_scaling_to_unit_box=True)
-
     surface_points, _ = get_surface_points(mesh, mesh_size=0.1, show=False)
     n_splits = round(n_volume_points // 5000)
     volume_points = np.random.random((n_volume_points, 3)) * 2 - 1
     volume_points_split = np.array_split(volume_points, n_splits)
     graph_data_list = []
-    for points in tqdm.tqdm(volume_points_split):
-        all_points = np.concatenate((surface_points, points))
-        if with_sdf:
-            sub_voxel_grid_sdfs = get_grid_points_sfds(mesh, points)
-            y = np.concatenate((np.zeros(len(surface_points)), sub_voxel_grid_sdfs))
-            in_or_out = y < 0
-            x = np.concatenate((all_points, in_or_out.reshape(-1, 1)), axis=1)
-            y = y.reshape(-1, 1).astype(float)
-        else:
-            on_surface = np.concatenate((np.ones(len(surface_points)), np.zeros(len(points))))
-            x = np.concatenate((all_points, on_surface.reshape(-1, 1)), axis=1)
-        x = x.astype(float)
 
-        edges = vertex_to_proximity_kdtree(all_points, radius,
-                                           max_n_neighbours=max_n_neighbours,
-                                           min_n_edges=min_n_neighbours,
-                                           n_features_to_consider=3)
-        sub_voxel_edge_feats = compute_edge_features(x, edges)
+    def func(points):
+        all_points = np.concatenate((surface_points, points))
+        volume_points_sdf = get_grid_points_sfds(mesh, points)
+        y = np.concatenate((np.zeros(len(surface_points)), volume_points_sdf))
+        on_surface = np.concatenate((np.ones(len(surface_points)), np.zeros(len(points))))
+        x = np.concatenate((all_points, on_surface.reshape(-1, 1)), axis=1)
+        x = x.astype(float)
+        y = y.reshape(-1, 1).astype(float)
+
+        edges = vertex_to_proximity_kdtree(all_points, edge_params, n_features_to_consider=3)
+        if include_reverse_edges:
+            edges = add_reversed_edges(edges)
+        edges = np.unique(edges, axis=1)
+
+        edge_feats = compute_edge_features(x, edges)
+
         u = np.zeros((1, 1))
-        if with_sdf:
-            graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
-                              y=torch.from_numpy(y).type(torch.float32),
-                              u=torch.from_numpy(u).type(torch.float32),
-                              edge_index=torch.from_numpy(edges).type(torch.long),
-                              edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
-        else:
-            graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
-                              u=torch.from_numpy(u).type(torch.float32),
-                              edge_index=torch.from_numpy(edges).type(torch.long),
-                              edge_attr=torch.from_numpy(sub_voxel_edge_feats).type(torch.float32))
-        graph_data_list.append(graph_data)
-    data_loader = DataLoader(graph_data_list, batch_size=batch_size)
-    # data_loader = DataListLoader(graph_data_list, batch_size=batch_size)
+        graph_data = Data(x=torch.from_numpy(x).type(torch.float32),
+                          y=torch.from_numpy(y).type(torch.float32),
+                          u=torch.from_numpy(u).type(torch.float32),
+                          edge_index=torch.from_numpy(edges).type(torch.long),
+                          edge_attr=torch.from_numpy(edge_feats).type(torch.float32))
+        return graph_data
+
+    if n_jobs == 1:
+        graph_data_list = [func(points) for points in tqdm.tqdm(volume_points_split)]
+    else:
+        graph_data_list = Parallel(n_jobs=n_jobs)(delayed(func)(points) for points in tqdm.tqdm(volume_points_split))
+
+    if data_parallel:
+        data_loader = DataListLoader(graph_data_list, batch_size=batch_size)
+    else:
+        data_loader = DataLoader(graph_data_list, batch_size=batch_size)
     return data_loader, volume_points_split
 
 
@@ -244,11 +221,13 @@ def eval_sdf(model, data_loader, save_name, loss_funcs=None, device=torch.device
     return preds, losses
 
 
-def sdf_to_grids(preds, voxels_res, sub_voxels_indices, batch_size=1):
+def data_to_grids(data_loader, voxels_res, sub_voxels_indices, batch_size=1):
     assert len(preds) * batch_size == len(sub_voxels_indices)
     grid_sdfs = np.zeros(voxels_res ** 3)
-    sdf_preds = np.array([p[1].cpu().numpy().squeeze() for p in preds])
-    sdf_preds = sdf_preds.reshape(-1, batch_size)
+    if batch_size == 1:
+        sdf_preds = np.array([data.y.cpu().numpy().squeeze() for data in data_loader])
+    else:
+        sdf_preds = np.array([d.y.cpu().numpy().squeeze() for data in data_loader for d in data ])
     sdf_preds = sdf_preds[:, -sub_voxels_indices.shape[1]:]
     for (id, sp) in zip(sub_voxels_indices, sdf_preds):
         grid_sdfs[id] = sp
@@ -256,13 +235,42 @@ def sdf_to_grids(preds, voxels_res, sub_voxels_indices, batch_size=1):
     return grid_sdfs
 
 
-def sdf_to_grids_interpolate(volume_points, preds, method='linear', res=128):
-    eps = 1e-3
+def data_to_grids_interpolate(volume_points, data_loader, method='linear', res=128):
+    vp = 5000
+    eps = 1e-1
     res_complex = res * 1j
     grid_x, grid_y, grid_z = np.mgrid[-1+eps:1-eps:res_complex, -1+eps:1-eps:res_complex, -1+eps:1-eps:res_complex]
     points = np.concatenate(volume_points)
-    preds  = np.concatenate([p[1][-len(vp):].cpu().numpy().squeeze() for (p, vp) in zip(preds, volume_points)])
-    grid_sdfs = griddata(points, preds, (grid_x, grid_y, grid_z), method=method)
+    sdf_preds = np.array([d.y.cpu().numpy().squeeze() for data in data_loader for d in data ])
+    sdf_preds = sdf_preds[:, -vp:].reshape(-1)
+    print(points.shape, sdf_preds.shape)
+    grid_sdfs = griddata(points, sdf_preds, (grid_x, grid_y, grid_z), method=method)
+    return grid_sdfs
+
+
+def sdf_to_grids(preds, voxels_res, sub_voxels_indices, batch_size=1):
+    assert len(preds) * batch_size == len(sub_voxels_indices)
+    grid_sdfs = np.zeros(voxels_res ** 3)
+    sdf_preds = np.array([p[1].cpu().numpy().squeeze() for p in preds])
+    sdf_preds = sdf_preds.reshape(len(preds) * batch_size, -1)
+    sdf_preds = sdf_preds[:, -sub_voxels_indices.shape[1]:]
+    for (id, sp) in zip(sub_voxels_indices, sdf_preds):
+        grid_sdfs[id] = sp
+    grid_sdfs = grid_sdfs.reshape((voxels_res, voxels_res, voxels_res))
+    return grid_sdfs
+
+
+def sdf_to_grids_interpolate(volume_points, preds, batch_size=1, method='linear', res=128):
+    vp = 5000
+    eps = 1e-1
+    res_complex = res * 1j
+    grid_x, grid_y, grid_z = np.mgrid[-1+eps:1-eps:res_complex, -1+eps:1-eps:res_complex, -1+eps:1-eps:res_complex]
+    points = np.concatenate(volume_points)
+    sdf_preds = np.array([p[1].cpu().numpy().squeeze() for p in preds])
+    sdf_preds = sdf_preds.reshape(len(preds) * batch_size, -1)
+    sdf_preds = sdf_preds[:, -vp:].reshape(-1)
+    print(points.shape, sdf_preds.shape)
+    grid_sdfs = griddata(points, sdf_preds, (grid_x, grid_y, grid_z), method=method)
     return grid_sdfs
 
 

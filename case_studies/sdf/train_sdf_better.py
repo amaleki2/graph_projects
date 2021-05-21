@@ -27,8 +27,7 @@ def train_sdf_with_shuffling(model,
                              batch_size=1,
                              n_volume_points=5000,
                              shuffle=False,
-                             n_jobs=1,
-                             **losses_params):
+                             n_jobs=1):
 
     data_parallel = isinstance(device, list)
     if data_parallel:  # data parallel
@@ -68,7 +67,7 @@ def train_sdf_with_shuffling(model,
         epoch_loss = []
         for data in train_data_loader:
             optimizer.zero_grad()
-            losses = train_forward_step(model, data, loss_funcs, device, **losses_params)
+            losses = train_forward_step(model, data, loss_funcs, device)
             epoch_loss.append([ll.item() for ll in losses])
             train_loss = sum(losses)
             train_loss.backward()
