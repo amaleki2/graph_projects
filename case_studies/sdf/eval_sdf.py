@@ -14,7 +14,7 @@ from case_studies.sdf.util_sdf import (vertex_to_proximity_kdtree, compute_edge_
 from joblib import Parallel, delayed
 
 
-def read_and_process_mesh(obj_in_file, with_rotate_or_scaling=True, with_scaling_to_unit_box=True):
+def read_and_process_mesh(obj_in_file, with_rotate_or_scaling=True, with_scaling_to_unit_box=True, scaler=2):
     mesh = trimesh.load(obj_in_file, force='mesh')
     mesh.merge_vertices(merge_tex=True, merge_norm=True)
     if with_rotate_or_scaling:
@@ -24,7 +24,7 @@ def read_and_process_mesh(obj_in_file, with_rotate_or_scaling=True, with_scaling
 
     if with_scaling_to_unit_box:
         s1 = mesh.bounding_box.centroid
-        s2 = 2 / np.max(mesh.bounding_box.extents)
+        s2 = scaler / np.max(mesh.bounding_box.extents)
         new_vertices = mesh.vertices - s1
         mesh.vertices = new_vertices * s2
     else:
@@ -102,10 +102,10 @@ def get_edge_features(x, edge_index, include_abs=False):
     return edge_attrs
 
 
-def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params, n_jobs=1,
+def create_voxel_dataset(surface_mesh, voxels_res, sub_voxels_res, edge_params, n_jobs=1, scaler=2,
                          batch_size=1, include_reverse_edges=False, data_parallel=False, force_n_volume_points_to=None):
     mesh = trimesh.load(surface_mesh, force='mesh', skip_materials=True)
-    mesh, _ = read_and_process_mesh(mesh, with_rotate_or_scaling=False, with_scaling_to_unit_box=True)
+    mesh, _ = read_and_process_mesh(mesh, with_rotate_or_scaling=False, with_scaling_to_unit_box=True, scaler=scaler)
     surface_points, _ = get_surface_points(mesh, mesh_size=0.1, show=False)
     grid_points = get_raster_points(voxels_res)
     sub_voxels_indices = get_sub_voxels_indices(voxels_res, sub_voxels_res)
@@ -223,12 +223,13 @@ def create_random_dataset(surface_mesh, n_volume_points, radius, min_n_neighbour
 def eval_sdf(model, data_loader, save_name, loss_funcs=None, device=torch.device('cuda')):
     preds = []
     losses = []
-    model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
     data_parallel = isinstance(device, list)
     if data_parallel:  # data parallel
-        device0 = torch.device('cuda:%d' % device[0])
+        device0 = torch.device('cuda:%d'%device[0])
+        model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device0))
         model = model.to(device0)
     else:
+        model.load_state_dict(torch.load("save_dir/model_" + save_name + ".pth", map_location=device))
         model = model.to(device=device)
     model.eval()
     with torch.no_grad():
@@ -243,10 +244,14 @@ def eval_sdf(model, data_loader, save_name, loss_funcs=None, device=torch.device
     return preds, losses
 
 
-def sdf_to_grids(preds, voxels_res, sub_voxels_indices):
+def sdf_to_grids(preds, voxels_res, sub_voxels_indices, batch_size=1):
+    assert len(preds) * batch_size == len(sub_voxels_indices)
     grid_sdfs = np.zeros(voxels_res ** 3)
-    for (voxel_id, pred) in zip(sub_voxels_indices, preds):
-        grid_sdfs[voxel_id] = pred[1][-sub_voxels_indices.shape[1]:].cpu().numpy().squeeze()
+    sdf_preds = np.array([p[1].cpu().numpy().squeeze() for p in preds])
+    sdf_preds = sdf_preds.reshape(-1, batch_size)
+    sdf_preds = sdf_preds[:, -sub_voxels_indices.shape[1]:]
+    for (id, sp) in zip(sub_voxels_indices, sdf_preds):
+        grid_sdfs[id] = sp
     grid_sdfs = grid_sdfs.reshape((voxels_res, voxels_res, voxels_res))
     return grid_sdfs
 

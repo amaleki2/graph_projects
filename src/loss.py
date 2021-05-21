@@ -74,6 +74,7 @@ def graph_loss(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
         loss = loss_func()(pred[1], data.y)
     return loss
 
+
 def graph_loss_data_parallel(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
     if aggr_func is None:
         aggr_func = lambda x: sum(x) / len(x)
@@ -87,6 +88,14 @@ def graph_loss_data_parallel(pred, data, loss_func=nn.L1Loss, aggr_func=None, **
         loss = loss_func()(pred[1], data_y)
     return loss
 
+
+def clamped_loss_data_parallel(pred, data, loss_func=nn.L1Loss, maxv=0.1, **kwargs):
+    device = pred[0][1].device
+    data_y = torch.cat([d.y for d in data]).to(device)
+    loss = loss_func(reduction='none')(pred[1], data_y)
+    loss_clamped = torch.clamp(loss, max=maxv)
+    loss_clamped_reduced = torch.mean(loss_clamped)
+    return loss_clamped_reduced
 
 # def graph_loss_data_parallel_batched(pred, data, loss_func=nn.L1Loss, aggr_func=None, **kwargs):
 #     if aggr_func is None:

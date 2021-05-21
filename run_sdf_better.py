@@ -1,6 +1,6 @@
 from case_studies.sdf.train_sdf_better import train_sdf_with_shuffling
 from src import (GATUNet, GCNUNet, EncodeProcessDecode, regular_loss, graph_loss,
-                 graph_loss_data_parallel, parse_arguments, get_device)
+                 graph_loss_data_parallel, parse_arguments, get_device, clamped_loss_data_parallel)
 from torch_geometric.nn import DataParallel
 
 # data parameters
@@ -61,7 +61,8 @@ elif network_name == "epd":
     if data_parallel:
         device_ids = [int(x) for x in device]
         model = DataParallel(model, device_ids=device_ids)
-        loss_funcs = [graph_loss_data_parallel]
+        # loss_funcs = [graph_loss_data_parallel]
+        loss_funcs = [clamped_loss_data_parallel]
     else:
         loss_funcs = [graph_loss]
 else:
