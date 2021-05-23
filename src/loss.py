@@ -100,7 +100,9 @@ def graph_loss_data_parallel_zero_focused(pred, data, loss_func=nn.L1Loss, aggr_
         loss = aggr_func(loss)
     else:
         mask = abs(data_y) < 0.1
-        loss = loss_func()(pred[1][mask], data_y[mask])
+        loss1 = loss_func()(pred[1][mask], data_y[mask])
+        loss2 = loss_func()(pred[1], data_y)
+        loss = loss1 * 5 + loss2
     return loss
 
 
